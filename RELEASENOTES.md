@@ -1,12 +1,14 @@
 Version 3.2d67
 ====
+This is equivalent to 3.2.1.
+
 **Bug Fix**
 * Fix a bug causing a crash when `soxr` interpolation was enabled and a play session was stopped. This bug overwrote incorrect memory locations, so depending on what it overwrote, may have been responsible for other inexplicable crashes. Thanks are due to [hanaguro](https://github.com/hanaguro), [FnasBas](https://github.com/FnasBas), [priitohlo](https://github.com/priitohlo), [David Krmpotić](https://github.com/davidhq) and [artenverho](https://github.com/artenverho).
 
 
 Version 3.2.d66
 ====
-* This is equivalent to 3.2.
+This is equivalent to 3.2.
 
 Version 3.2.d65
 ====
