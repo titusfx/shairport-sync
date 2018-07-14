@@ -2385,7 +2385,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
   int32_t hw_min_db, hw_max_db, hw_range_db, min_db,
       max_db; // hw_range_db is a flag; if 0 means no mixer
 
-  if (config.output->parameters) {
+  if (config.output->parameters) { // no cancellation points in here
     audio_parameters audio_information;
     // have a hardware mixer
     config.output->parameters(&audio_information);
@@ -2515,9 +2515,9 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
     if (config.ignore_volume_control == 1)
       scaled_attenuation = max_db;
     else if (config.volume_control_profile == VCP_standard)
-      scaled_attenuation = vol2attn(airplay_volume, max_db, min_db);
+      scaled_attenuation = vol2attn(airplay_volume, max_db, min_db); // no cancellation points 
     else if (config.volume_control_profile == VCP_flat)
-      scaled_attenuation = flat_vol2attn(airplay_volume, max_db, min_db);
+      scaled_attenuation = flat_vol2attn(airplay_volume, max_db, min_db); // no cancellation points 
     else
       debug(1, "Unrecognised volume control profile");
 
@@ -2552,7 +2552,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
   // %f",software_attenuation,temp_fix_volume,airplay_volume);
 
   conn->fix_volume = temp_fix_volume;
-  memory_barrier();
+  memory_barrier(); // no cancellation points 
 
   if (config.loudness)
     loudness_set_volume(software_attenuation / 100);
@@ -2599,7 +2599,7 @@ void do_flush(int64_t timestamp, rtsp_conn_info *conn) {
   // otherwise
   if (conn->first_packet_timestamp) {
     debug(2, "pfls");
-    send_ssnc_metadata('pfls', NULL, 0, 1);
+    send_ssnc_metadata('pfls', NULL, 0, 1); // contains cancellation points
   }
 #endif
 
@@ -2621,7 +2621,7 @@ int player_play(rtsp_conn_info *conn) {
   command_start();
 #ifdef CONFIG_METADATA
   debug(2, "pbeg");
-  send_ssnc_metadata('pbeg', NULL, 0, 1);
+  send_ssnc_metadata('pbeg', NULL, 0, 1); // contains cancellation points
 #endif
   pthread_t *pt = malloc(sizeof(pthread_t));
   if (pt == NULL)
@@ -2640,6 +2640,7 @@ int player_play(rtsp_conn_info *conn) {
 }
 
 int player_stop(rtsp_conn_info *conn) {
+  // will only ever be called by the connection thread
   debug(3, "player_stop");
   if (conn->player_thread) {
     debug(3, "player_thread exists");
@@ -2652,7 +2653,7 @@ int player_stop(rtsp_conn_info *conn) {
     conn->player_thread = NULL;
 #ifdef CONFIG_METADATA
     debug(2, "pend");
-    send_ssnc_metadata('pend', NULL, 0, 1);
+    send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
 #endif
     command_stop();
     return 0;

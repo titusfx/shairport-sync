@@ -163,6 +163,13 @@ int send_ssnc_metadata(uint32_t code, char *data, uint32_t length, int block) {
   return send_metadata('ssnc', code, data, length, NULL, block);
 }
 
+void pc_queue_cleanup_handler(void *arg) {
+  pc_queue *the_queue = (pc_queue *)arg;
+  int rc = pthread_mutex_unlock(&the_queue->pc_queue_lock);
+  if (rc)
+    debug(1, "Error unlocking for pc_queue_add_item or pc_queue_get_item.");
+}
+
 int pc_queue_add_item(pc_queue *the_queue, const void *the_stuff, int block) {
   int rc;
   if (the_queue) {
@@ -174,6 +181,7 @@ int pc_queue_add_item(pc_queue *the_queue, const void *the_stuff, int block) {
       rc = pthread_mutex_lock(&the_queue->pc_queue_lock);
     if (rc)
       debug(1, "Error locking for pc_queue_add_item");
+    pthread_cleanup_push(pc_queue_cleanup_handler,(void *)the_queue);
     while (the_queue->count == the_queue->capacity) {
       rc = pthread_cond_wait(&the_queue->pc_queue_item_removed_signal, &the_queue->pc_queue_lock);
       if (rc)
@@ -196,9 +204,7 @@ int pc_queue_add_item(pc_queue *the_queue, const void *the_stuff, int block) {
     rc = pthread_cond_signal(&the_queue->pc_queue_item_added_signal);
     if (rc)
       debug(1, "Error signalling after pc_queue_add_item");
-    rc = pthread_mutex_unlock(&the_queue->pc_queue_lock);
-    if (rc)
-      debug(1, "Error unlocking for pc_queue_add_item");
+    pthread_cleanup_pop(1); // unlock the queue lock.
   } else {
     debug(1, "Adding an item to a NULL queue");
   }
@@ -211,6 +217,7 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
     rc = pthread_mutex_lock(&the_queue->pc_queue_lock);
     if (rc)
       debug(1, "Error locking for pc_queue_get_item");
+    pthread_cleanup_push(pc_queue_cleanup_handler,(void *)the_queue);
     while (the_queue->count == 0) {
       rc = pthread_cond_wait(&the_queue->pc_queue_item_added_signal, &the_queue->pc_queue_lock);
       if (rc)
@@ -231,9 +238,7 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
     rc = pthread_cond_signal(&the_queue->pc_queue_item_removed_signal);
     if (rc)
       debug(1, "Error signalling after pc_queue_removed_item");
-    rc = pthread_mutex_unlock(&the_queue->pc_queue_lock);
-    if (rc)
-      debug(1, "Error unlocking for pc_queue_get_item");
+    pthread_cleanup_pop(1); // unlock the queue lock.
   } else {
     debug(1, "Removing an item from a NULL queue");
   }
