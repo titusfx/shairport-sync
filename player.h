@@ -81,11 +81,14 @@ typedef struct {
   SOCKADDR remote, local;
   int stop;
   int running;
-  pthread_t thread, timer_requester;
-
+  pthread_t thread, timer_requester, rtp_audio_thread, rtp_control_thread, rtp_timing_thread;
   // pthread_t *ptp;
+  
+  signed short *tbuf;
+  int32_t *sbuf;
+  char *outbuf;
+  
   pthread_t *player_thread;
-
   abuf_t audio_buffer[BUFFER_FRAMES];
   int max_frames_per_packet, input_num_channels, input_bit_depth, input_rate;
   int input_bytes_per_frame, output_bytes_per_frame, output_sample_ratio;

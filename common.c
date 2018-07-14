@@ -419,14 +419,15 @@ static char super_secret_key[] =
 
 #ifdef HAVE_LIBSSL
 uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
-  static RSA *rsa = NULL;
-
+  RSA *rsa = NULL;
   if (!rsa) {
     BIO *bmem = BIO_new_mem_buf(super_secret_key, -1);
     rsa = PEM_read_bio_RSAPrivateKey(bmem, NULL, NULL, NULL);
     BIO_free(bmem);
   }
 
+  debug(1,"RSA_size(rsa) is %d",RSA_size(rsa));
+  
   uint8_t *out = malloc(RSA_size(rsa));
   switch (mode) {
   case RSA_MODE_AUTH:

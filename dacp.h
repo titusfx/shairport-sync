@@ -26,6 +26,7 @@ int dacp_get_speaker_list(dacp_spkr_stuff *speaker_array, int max_size_of_array,
 void set_dacp_server_information(rtsp_conn_info *conn); // tell the DACP conversation thread that
                                                         // the dacp server information has been set
                                                         // or changed
+void relinquish_dacp_server_information(rtsp_conn_info *conn); // tell the DACP conversation thread that the player thread is no longer associated with it.
 void dacp_monitor_port_update_callback(
     char *dacp_id, uint16_t port); // a callback to say the port is no longer in use
 int send_simple_dacp_command(const char *command);

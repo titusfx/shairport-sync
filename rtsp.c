@@ -2021,6 +2021,12 @@ static void *rtsp_conversation_thread_func(void *pconn) {
     playing_conn = NULL;
     pthread_mutex_unlock(&play_lock);
   }
+  
+  if (conn->dacp_id) {
+    free(conn->dacp_id);
+    conn->dacp_id = NULL;
+  }
+
   debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
   conn->running = 0;
 

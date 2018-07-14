@@ -468,9 +468,6 @@ void avahi_dacp_dont_monitor(void *userdata) {
   if (userdata) {
     dacp_browser_struct *dbs = (dacp_browser_struct *)userdata;
     // stop and dispose of everything
-    /*if (dbs->service_poll)
-      avahi_threaded_poll_stop((dbs)->service_poll);
-    */
     if (dbs->service_poll) {
       avahi_threaded_poll_stop(dbs->service_poll);
       avahi_threaded_poll_lock(dbs->service_poll);
