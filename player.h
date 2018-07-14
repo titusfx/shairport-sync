@@ -85,7 +85,6 @@ typedef struct {
 
   // pthread_t *ptp;
   pthread_t *player_thread;
-  pthread_rwlock_t player_thread_lock; // used to control access by "outsiders"
 
   abuf_t audio_buffer[BUFFER_FRAMES];
   int max_frames_per_packet, input_num_channels, input_bit_depth, input_rate;

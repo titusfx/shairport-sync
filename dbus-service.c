@@ -43,16 +43,15 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
     shairport_sync_advanced_remote_control_set_available(shairportSyncAdvancedRemoteControlSkeleton,
                                                          FALSE);
   }
-  
+
   if (argc->progress_string) {
-  	// debug(1, "Check progress string");
-		th = shairport_sync_remote_control_get_progress_string(
-				shairportSyncRemoteControlSkeleton);
-		if ((th == NULL) || (strcasecmp(th, argc->progress_string) != 0)) {
-			// debug(1, "Progress string should be changed");
-			shairport_sync_remote_control_set_progress_string(
-					shairportSyncRemoteControlSkeleton, argc->progress_string);
-		}  	
+    // debug(1, "Check progress string");
+    th = shairport_sync_remote_control_get_progress_string(shairportSyncRemoteControlSkeleton);
+    if ((th == NULL) || (strcasecmp(th, argc->progress_string) != 0)) {
+      // debug(1, "Progress string should be changed");
+      shairport_sync_remote_control_set_progress_string(shairportSyncRemoteControlSkeleton,
+                                                        argc->progress_string);
+    }
   }
 
   switch (argc->player_state) {
@@ -162,7 +161,8 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
   if ((argc->track_metadata) && (argc->track_metadata->item_id)) {
     char trackidstring[128];
     // debug(1, "Set ID using mper ID: \"%u\".",argc->item_id);
-    snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/mper_%u", argc->track_metadata->item_id);
+    snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/mper_%u",
+             argc->track_metadata->item_id);
     GVariant *trackid = g_variant_new("o", trackidstring);
     g_variant_builder_add(dict_builder, "{sv}", "mpris:trackid", trackid);
   }

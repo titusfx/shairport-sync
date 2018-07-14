@@ -1887,11 +1887,25 @@ authenticate:
 static void *rtsp_conversation_thread_func(void *pconn) {
   rtsp_conn_info *conn = pconn;
 
-  // create the player thread lock.
-  int rwli = pthread_rwlock_init(&conn->player_thread_lock, NULL);
-  if (rwli != 0)
-    die("Error %d initialising player_thread_lock for conversation thread %d.", rwli,
-        conn->connection_number);
+  int rc = pthread_mutex_init(&conn->flush_mutex, NULL);
+  if (rc)
+    die("Connection %d: error %d initialising flush_mutex.", conn->connection_number, rc);
+  rc = pthread_mutex_init(&conn->ab_mutex, NULL);
+  if (rc)
+    die("Connection %d: error %d initialising ab_mutex.", conn->connection_number, rc);
+// set the flowcontrol condition variable to wait on a monotonic clock
+#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
+  pthread_condattr_t attr;
+  pthread_condattr_init(&attr);
+  pthread_condattr_setclock(&attr, CLOCK_MONOTONIC); // can't do this in OS X, and don't need it.
+  rc = pthread_cond_init(&conn->flowcontrol, &attr);
+#endif
+#ifdef COMPILE_FOR_OSX
+  rc = pthread_cond_init(&conn->flowcontrol, NULL);
+#endif
+  if (rc)
+    die("Connection %d: error %d initialising flow control condition variable.",
+        conn->connection_number, rc);
 
   rtp_initialise(conn);
 
@@ -2005,12 +2019,17 @@ static void *rtsp_conversation_thread_func(void *pconn) {
   debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
   conn->running = 0;
 
-  // release the player_thread_lock
-  int rwld = pthread_rwlock_destroy(&conn->player_thread_lock);
-  if (rwld)
-    debug(1, "Error %d destroying player_thread_lock for conversation thread %d.", rwld,
-          conn->connection_number);
-
+  // remove flow control and mutexes
+  rc = pthread_cond_destroy(&conn->flowcontrol);
+  if (rc)
+    debug(1, "Connection %d: error %d destroying flow control condition variable.",
+          conn->connection_number, rc);
+  rc = pthread_mutex_destroy(&conn->ab_mutex);
+  if (rc)
+    debug(1, "Connection %d: error %d destroying ab_mutex.", conn->connection_number, rc);
+  rc = pthread_mutex_destroy(&conn->flush_mutex);
+  if (rc)
+    debug(1, "Connection %d: error %d destroying flush_mutex.", conn->connection_number, rc);
   pthread_exit(NULL);
 }
 
