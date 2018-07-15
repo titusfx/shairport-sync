@@ -785,12 +785,12 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
   int notified_buffer_empty = 0; // diagnostic only
 
   debug_mutex_lock(&conn->ab_mutex, 30000, 1);
-  
-  
+
   int wait;
   long dac_delay = 0; // long because alsa returns a long
-  
-  pthread_cleanup_push(buffer_get_frame_cleanup_handler, (void *)conn); // undo what's been done so far
+
+  pthread_cleanup_push(buffer_get_frame_cleanup_handler,
+                       (void *)conn); // undo what's been done so far
   do {
     // get the time
     local_time_now = get_absolute_time_in_fp(); // type okay
@@ -830,7 +830,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     if (conn->flush_requested == 1) {
       if (config.output->flush)
         config.output->flush(); // no cancellation points
-      ab_resync(conn); // no cancellation points
+      ab_resync(conn);          // no cancellation points
       conn->first_packet_timestamp = 0;
       conn->first_packet_time_to_play = 0;
       conn->time_since_play_started = 0;
@@ -1216,7 +1216,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       time_of_wakeup.tv_sec = sec;
       time_of_wakeup.tv_nsec = nsec;
       //      pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex, &time_of_wakeup);
-      int rc = pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex, &time_of_wakeup);  // this is a pthread cancellation point
+      int rc = pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex,
+                                      &time_of_wakeup); // this is a pthread cancellation point
       if (rc != 0)
         debug(3, "pthread_cond_timedwait returned error code %d.", rc);
 #endif
@@ -1232,7 +1233,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
   } while (wait);
 
   // seq_t read = conn->ab_read;
-  if (conn->player_thread_please_stop==0) {
+  if (conn->player_thread_please_stop == 0) {
     if (!curframe->ready) {
       // debug(1, "Supplying a silent frame for frame %u", read);
       conn->missing_packets++;
@@ -1242,7 +1243,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     curframe->resend_level = 0;
     conn->ab_read = SUCCESSOR(conn->ab_read);
   }
-  
+
   pthread_cleanup_pop(1);
 
   if (conn->player_thread_please_stop)
@@ -1442,7 +1443,8 @@ void player_thread_cleanup_handler(void *arg) {
 
 #ifdef HAVE_DACP_CLIENT
 
-  relinquish_dacp_server_information(conn); // say it doesn't belong to this conversation thread any more...
+  relinquish_dacp_server_information(
+      conn); // say it doesn't belong to this conversation thread any more...
 
 #else
   // stop watching for DACP port number stuff
@@ -1475,11 +1477,11 @@ void player_thread_cleanup_handler(void *arg) {
   if (conn->outbuf) {
     free(conn->outbuf);
     conn->outbuf = NULL;
-  }  
+  }
   if (conn->sbuf) {
     free(conn->sbuf);
     conn->sbuf = NULL;
-  }  
+  }
   if (conn->tbuf) {
     free(conn->tbuf);
     conn->tbuf = NULL;
@@ -1655,15 +1657,17 @@ void *player_thread_func(void *arg) {
   // if ((input_rate!=config.output_rate) || (input_bit_depth!=output_bit_depth)) {
   // debug(1,"Define tbuf of length
   // %d.",output_bytes_per_frame*(max_frames_per_packet*output_sample_ratio+max_frame_size_change));
-  conn->tbuf = malloc(sizeof(int32_t) * 2 * (conn->max_frames_per_packet * conn->output_sample_ratio +
-                                       conn->max_frame_size_change));
+  conn->tbuf =
+      malloc(sizeof(int32_t) * 2 * (conn->max_frames_per_packet * conn->output_sample_ratio +
+                                    conn->max_frame_size_change));
   if (conn->tbuf == NULL)
     die("Failed to allocate memory for the transition buffer.");
 
   // initialise this, because soxr stuffing might be chosen later
 
-  conn->sbuf = malloc(sizeof(int32_t) * 2 * (conn->max_frames_per_packet * conn->output_sample_ratio +
-                                       conn->max_frame_size_change));
+  conn->sbuf =
+      malloc(sizeof(int32_t) * 2 * (conn->max_frames_per_packet * conn->output_sample_ratio +
+                                    conn->max_frame_size_change));
   if (conn->sbuf == NULL)
     die("Failed to allocate memory for the sbuf buffer.");
 
@@ -1693,7 +1697,7 @@ void *player_thread_func(void *arg) {
   if (conn->dapo_private_storage)
     debug(1, "DACP monitor already initialised?");
   else
-  // this does not have pthread cancellation points in it (assuming avahi doesn't)
+    // this does not have pthread cancellation points in it (assuming avahi doesn't)
     conn->dapo_private_storage = mdns_dacp_monitor(conn->dacp_id); // ??
 #endif
 
@@ -1742,12 +1746,12 @@ void *player_thread_func(void *arg) {
   debug(3, "Set initial volume to %f.", config.airplay_volume);
   player_volume(config.airplay_volume, conn); // ??
   int64_t frames_to_drop = 0;
-  
-   // create and start the timing, control and audio receiver threads
+
+  // create and start the timing, control and audio receiver threads
   pthread_create(&conn->rtp_audio_thread, NULL, &rtp_audio_receiver, (void *)conn);
   pthread_create(&conn->rtp_control_thread, NULL, &rtp_control_receiver, (void *)conn);
   pthread_create(&conn->rtp_timing_thread, NULL, &rtp_timing_receiver, (void *)conn);
-   
+
   pthread_cleanup_push(player_thread_cleanup_handler, arg); // undo what's been done so far
 
   // debug(1, "Play begin");
@@ -2152,9 +2156,9 @@ void *player_thread_func(void *arg) {
               case ST_soxr:
 #ifdef HAVE_LIBSOXR
                 //                if (amount_to_stuff) debug(1,"Soxr stuff...");
-                play_samples = stuff_buffer_soxr_32((int32_t *)conn->tbuf, (int32_t *)conn->sbuf, inbuflength,
-                                                    config.output_format, conn->outbuf, amount_to_stuff,
-                                                    enable_dither, conn);
+                play_samples = stuff_buffer_soxr_32((int32_t *)conn->tbuf, (int32_t *)conn->sbuf,
+                                                    inbuflength, config.output_format, conn->outbuf,
+                                                    amount_to_stuff, enable_dither, conn);
 #endif
                 break;
               }
@@ -2209,8 +2213,9 @@ void *player_thread_func(void *arg) {
           } else {
             // if there is no delay procedure, or it's not working or not allowed, there can be no
             // synchronising
-            play_samples = stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
-                                                 conn->outbuf, 0, enable_dither, conn);
+            play_samples =
+                stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
+                                      conn->outbuf, 0, enable_dither, conn);
             if (conn->outbuf == NULL)
               debug(1, "NULL outbuf to play -- skipping it.");
             else
@@ -2283,26 +2288,26 @@ void *player_thread_func(void *arg) {
             if (at_least_one_frame_seen) {
               if ((config.output->delay)) {
                 if (config.no_sync == 0) {
-                  inform(
-                      "|%*.1f," /* Sync error in milliseconds */
-                      "%*.1f,"  /* net correction in ppm */
-                      "%*.1f,"  /* corrections in ppm */
-                      "%*d,"    /* total packets */
-                      "%*llu,"  /* missing packets */
-                      "%*llu,"  /* late packets */
-                      "%*llu,"  /* too late packets */
-                      "%*llu,"  /* resend requests */
-                      "%*lli,"  /* min DAC queue size */
-                      "%*d,"    /* min buffer occupancy */
-                      "%*d",    /* max buffer occupancy */
-                      10,
-                      1000 * moving_average_sync_error / config.output_rate,
-                      10, moving_average_correction * 1000000 / (352 * conn->output_sample_ratio),
-                      10, moving_average_insertions_plus_deletions * 1000000 /
-                              (352 * conn->output_sample_ratio),
-                      12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
-                      conn->too_late_packets, 7, conn->resend_requests, 7, minimum_dac_queue_size,
-                      5, minimum_buffer_occupancy, 5, maximum_buffer_occupancy);
+                  inform("|%*.1f," /* Sync error in milliseconds */
+                         "%*.1f,"  /* net correction in ppm */
+                         "%*.1f,"  /* corrections in ppm */
+                         "%*d,"    /* total packets */
+                         "%*llu,"  /* missing packets */
+                         "%*llu,"  /* late packets */
+                         "%*llu,"  /* too late packets */
+                         "%*llu,"  /* resend requests */
+                         "%*lli,"  /* min DAC queue size */
+                         "%*d,"    /* min buffer occupancy */
+                         "%*d",    /* max buffer occupancy */
+                         10,
+                         1000 * moving_average_sync_error / config.output_rate, 10,
+                         moving_average_correction * 1000000 / (352 * conn->output_sample_ratio),
+                         10, moving_average_insertions_plus_deletions * 1000000 /
+                                 (352 * conn->output_sample_ratio),
+                         12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
+                         conn->too_late_packets, 7, conn->resend_requests, 7,
+                         minimum_dac_queue_size, 5, minimum_buffer_occupancy, 5,
+                         maximum_buffer_occupancy);
                 } else {
                   inform("|%*.1f," /* Sync error in milliseconds */
                          "%*d,"    /* total packets */
@@ -2314,11 +2319,10 @@ void *player_thread_func(void *arg) {
                          "%*d,"    /* min buffer occupancy */
                          "%*d",    /* max buffer occupancy */
                          10,
-                         1000 * moving_average_sync_error / config.output_rate,
-                         12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
-                         conn->too_late_packets, 7, conn->resend_requests, 7,
-                         minimum_dac_queue_size, 5, minimum_buffer_occupancy, 5,
-                         maximum_buffer_occupancy);
+                         1000 * moving_average_sync_error / config.output_rate, 12, play_number, 7,
+                         conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets, 7,
+                         conn->resend_requests, 7, minimum_dac_queue_size, 5,
+                         minimum_buffer_occupancy, 5, maximum_buffer_occupancy);
                 }
               } else {
                 inform("|%*.1f," /* Sync error in milliseconds */
@@ -2330,10 +2334,10 @@ void *player_thread_func(void *arg) {
                        "%*d,"    /* min buffer occupancy */
                        "%*d",    /* max buffer occupancy */
                        10,
-                       1000 * moving_average_sync_error / config.output_rate,
-                       12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
-                       conn->too_late_packets, 7, conn->resend_requests, 5,
-                       minimum_buffer_occupancy, 5, maximum_buffer_occupancy);
+                       1000 * moving_average_sync_error / config.output_rate, 12, play_number, 7,
+                       conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets, 7,
+                       conn->resend_requests, 5, minimum_buffer_occupancy, 5,
+                       maximum_buffer_occupancy);
               }
             } else {
               inform("No frames received in the last sampling interval.");
@@ -2348,70 +2352,71 @@ void *player_thread_func(void *arg) {
     }
   }
 
-/* all done in the cleanup...
+  /* all done in the cleanup...
 
-  debug(3, "Connection %d: player thread main loop exit.", conn->connection_number);
+    debug(3, "Connection %d: player thread main loop exit.", conn->connection_number);
 
-  if (config.statistics_requested) {
-    int rawSeconds = (int)difftime(time(NULL), conn->playstart);
-    int elapsedHours = rawSeconds / 3600;
-    int elapsedMin = (rawSeconds / 60) % 60;
-    int elapsedSec = rawSeconds % 60;
-    inform("Playback Stopped. Total playing time %02d:%02d:%02d.", elapsedHours, elapsedMin,
-           elapsedSec);
-  }
-   
-#ifdef HAVE_DACP_CLIENT
+    if (config.statistics_requested) {
+      int rawSeconds = (int)difftime(time(NULL), conn->playstart);
+      int elapsedHours = rawSeconds / 3600;
+      int elapsedMin = (rawSeconds / 60) % 60;
+      int elapsedSec = rawSeconds % 60;
+      inform("Playback Stopped. Total playing time %02d:%02d:%02d.", elapsedHours, elapsedMin,
+             elapsedSec);
+    }
 
-  relinquish_dacp_server_information(conn); // say it doesn't belong to this conversation thread any more...
+  #ifdef HAVE_DACP_CLIENT
 
-#else
-  // stop watching for DACP port number stuff
-  // this is only used for compatability, if dacp stuff isn't enabled.
-  if (conn->dapo_private_storage) {
-    mdns_dacp_dont_monitor(conn->dapo_private_storage);
-    conn->dapo_private_storage = NULL;
-  } else {
-    debug(2, "DACP Monitor already stopped");
-  }
-#endif
+    relinquish_dacp_server_information(conn); // say it doesn't belong to this conversation thread
+  any more...
 
-  debug(2, "Cancelling timing, control and audio threads...");
-  debug(2, "Cancel timing thread.");
-  pthread_cancel(rtp_timing_thread);
-  debug(2, "Join timing thread.");
-  pthread_join(rtp_timing_thread, NULL);
-  debug(2, "Timing thread terminated.");
-  debug(2, "Cancel control thread.");
-  pthread_cancel(rtp_control_thread);
-  debug(2, "Join control thread.");
-  pthread_join(rtp_control_thread, NULL);
-  debug(2, "Control thread terminated.");
-  debug(2, "Cancel audio thread.");
-  pthread_cancel(rtp_audio_thread);
-  debug(2, "Join audio thread.");
-  pthread_join(rtp_audio_thread, NULL);
-  debug(2, "Audio thread terminated.");
-  clear_reference_timestamp(conn);
-  conn->rtp_running = 0;
+  #else
+    // stop watching for DACP port number stuff
+    // this is only used for compatability, if dacp stuff isn't enabled.
+    if (conn->dapo_private_storage) {
+      mdns_dacp_dont_monitor(conn->dapo_private_storage);
+      conn->dapo_private_storage = NULL;
+    } else {
+      debug(2, "DACP Monitor already stopped");
+    }
+  #endif
 
-  debug(3, "Connection %d: stopping output device.", conn->connection_number);
+    debug(2, "Cancelling timing, control and audio threads...");
+    debug(2, "Cancel timing thread.");
+    pthread_cancel(rtp_timing_thread);
+    debug(2, "Join timing thread.");
+    pthread_join(rtp_timing_thread, NULL);
+    debug(2, "Timing thread terminated.");
+    debug(2, "Cancel control thread.");
+    pthread_cancel(rtp_control_thread);
+    debug(2, "Join control thread.");
+    pthread_join(rtp_control_thread, NULL);
+    debug(2, "Control thread terminated.");
+    debug(2, "Cancel audio thread.");
+    pthread_cancel(rtp_audio_thread);
+    debug(2, "Join audio thread.");
+    pthread_join(rtp_audio_thread, NULL);
+    debug(2, "Audio thread terminated.");
+    clear_reference_timestamp(conn);
+    conn->rtp_running = 0;
 
-  if (config.output->stop)
-    config.output->stop();
+    debug(3, "Connection %d: stopping output device.", conn->connection_number);
 
-  debug(2, "Freeing audio buffers and decoders.");
+    if (config.output->stop)
+      config.output->stop();
 
-  free_audio_buffers(conn);
-  terminate_decoders(conn);
-  debug(2, "Connection %d: player thread terminated.", conn->connection_number);
-  if (outbuf)
-    free(outbuf);
-  if (tbuf)
-    free(tbuf);
-  if (sbuf)
-    free(sbuf);
-  */
+    debug(2, "Freeing audio buffers and decoders.");
+
+    free_audio_buffers(conn);
+    terminate_decoders(conn);
+    debug(2, "Connection %d: player thread terminated.", conn->connection_number);
+    if (outbuf)
+      free(outbuf);
+    if (tbuf)
+      free(tbuf);
+    if (sbuf)
+      free(sbuf);
+    */
   pthread_cleanup_pop(1);
   pthread_exit(NULL);
 }
@@ -2419,7 +2424,8 @@ void *player_thread_func(void *arg) {
 // takes the volume as specified by the airplay protocol
 void player_volume_without_notification(double airplay_volume, rtsp_conn_info *conn) {
 
-  // no cancellation points here if we assume that the mute call to the back end has no cancellation points
+  // no cancellation points here if we assume that the mute call to the back end has no cancellation
+  // points
 
   // The volume ranges -144.0 (mute) or -30 -- 0. See
   // http://git.zx2c4.com/Airtunes2/about/#setting-volume
@@ -2584,9 +2590,9 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
     if (config.ignore_volume_control == 1)
       scaled_attenuation = max_db;
     else if (config.volume_control_profile == VCP_standard)
-      scaled_attenuation = vol2attn(airplay_volume, max_db, min_db); // no cancellation points 
+      scaled_attenuation = vol2attn(airplay_volume, max_db, min_db); // no cancellation points
     else if (config.volume_control_profile == VCP_flat)
-      scaled_attenuation = flat_vol2attn(airplay_volume, max_db, min_db); // no cancellation points 
+      scaled_attenuation = flat_vol2attn(airplay_volume, max_db, min_db); // no cancellation points
     else
       debug(1, "Unrecognised volume control profile");
 
@@ -2621,7 +2627,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
   // %f",software_attenuation,temp_fix_volume,airplay_volume);
 
   conn->fix_volume = temp_fix_volume;
-  memory_barrier(); // no cancellation points 
+  memory_barrier(); // no cancellation points
 
   if (config.loudness)
     loudness_set_volume(software_attenuation / 100);
@@ -2712,12 +2718,14 @@ int player_stop(rtsp_conn_info *conn) {
   // will only ever be called by the connection thread
   debug(3, "player_stop");
   if (conn->player_thread) {
-    debug(3, "player_thread exists");
-    conn->player_thread_please_stop = 1;
-    pthread_cond_signal(&conn->flowcontrol); // tell it to give up
-    pthread_kill(*conn->player_thread, SIGUSR1);
-    debug(3, "player_thread signalled");
+    debug(3, "player_thread cancel...");
+    // conn->player_thread_please_stop = 1;
+    // pthread_cond_signal(&conn->flowcontrol); // tell it to give up
+    // pthread_kill(*conn->player_thread, SIGUSR1);
+    pthread_cancel(*conn->player_thread);
+    debug(3, "player_thread cancelled.");
     pthread_join(*conn->player_thread, NULL);
+    debug(2, "player_thread joined.");
     free(conn->player_thread);
     conn->player_thread = NULL;
 #ifdef CONFIG_METADATA

@@ -181,7 +181,7 @@ int pc_queue_add_item(pc_queue *the_queue, const void *the_stuff, int block) {
       rc = pthread_mutex_lock(&the_queue->pc_queue_lock);
     if (rc)
       debug(1, "Error locking for pc_queue_add_item");
-    pthread_cleanup_push(pc_queue_cleanup_handler,(void *)the_queue);
+    pthread_cleanup_push(pc_queue_cleanup_handler, (void *)the_queue);
     while (the_queue->count == the_queue->capacity) {
       rc = pthread_cond_wait(&the_queue->pc_queue_item_removed_signal, &the_queue->pc_queue_lock);
       if (rc)
@@ -217,7 +217,7 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
     rc = pthread_mutex_lock(&the_queue->pc_queue_lock);
     if (rc)
       debug(1, "Error locking for pc_queue_get_item");
-    pthread_cleanup_push(pc_queue_cleanup_handler,(void *)the_queue);
+    pthread_cleanup_push(pc_queue_cleanup_handler, (void *)the_queue);
     while (the_queue->count == 0) {
       rc = pthread_cond_wait(&the_queue->pc_queue_item_added_signal, &the_queue->pc_queue_lock);
       if (rc)
@@ -2021,7 +2021,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
     playing_conn = NULL;
     pthread_mutex_unlock(&play_lock);
   }
-  
+
   if (conn->dacp_id) {
     free(conn->dacp_id);
     conn->dacp_id = NULL;

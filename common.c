@@ -441,8 +441,8 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
     BIO_free(bmem);
   }
 
-  debug(1,"RSA_size(rsa) is %d",RSA_size(rsa));
-  
+  debug(1, "RSA_size(rsa) is %d", RSA_size(rsa));
+
   uint8_t *out = malloc(RSA_size(rsa));
   switch (mode) {
   case RSA_MODE_AUTH:
@@ -1084,7 +1084,7 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
                                 const char *debugmessage, int debuglevel) {
 
-// this is not pthread_cancellation safe because is contains a cancellation point
+  // this is not pthread_cancellation safe because is contains a cancellation point
   useconds_t time_to_wait = dally_time;
   int r = pthread_mutex_trylock(mutex);
   while ((r == EBUSY) && (time_to_wait > 0)) {
