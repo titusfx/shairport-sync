@@ -1482,15 +1482,14 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
       debug(1, "Playing connection is already shutting down; waiting for it...");
       should_wait = 1;
     } else if (config.allow_session_interruption == 1) {
-      // some other thread has the player ... ask it to relinquish the thread
+      // some thread has the player ... ask it to relinquish the thread
       debug(1, "ANNOUNCE: playing connection %d being interrupted by connection %d.",
             playing_conn->connection_number, conn->connection_number);
       if (playing_conn == conn) {
-        debug(1, "ANNOUNCE asking to stop itself.");
+        debug(1, "ANNOUNCE asking to stop itself! Nothing done.");
       } else {
+        player_stop(playing_conn);
         playing_conn->stop = 1;
-        memory_barrier();
-        pthread_kill(playing_conn->thread, SIGUSR1);
         should_wait = 1;
       }
     }
