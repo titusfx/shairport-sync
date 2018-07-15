@@ -771,6 +771,11 @@ static inline void process_sample(int32_t sample, char **outp, enum sps_format_t
   *outp += result;
 }
 
+void buffer_get_frame_cleanup_handler(void *arg) {
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug_mutex_unlock(&conn->ab_mutex, 3);
+}
+
 // get the next frame, when available. return 0 if underrun/stream reset.
 static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
   // int16_t buf_fill;
@@ -780,8 +785,12 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
   int notified_buffer_empty = 0; // diagnostic only
 
   debug_mutex_lock(&conn->ab_mutex, 30000, 1);
+  
+  
   int wait;
   long dac_delay = 0; // long because alsa returns a long
+  
+  pthread_cleanup_push(buffer_get_frame_cleanup_handler, (void *)conn); // undo what's been done so far
   do {
     // get the time
     local_time_now = get_absolute_time_in_fp(); // type okay
@@ -820,8 +829,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     debug_mutex_lock(&conn->flush_mutex, 1000, 1);
     if (conn->flush_requested == 1) {
       if (config.output->flush)
-        config.output->flush();
-      ab_resync(conn);
+        config.output->flush(); // no cancellation points
+      ab_resync(conn); // no cancellation points
       conn->first_packet_timestamp = 0;
       conn->first_packet_time_to_play = 0;
       conn->time_since_play_started = 0;
@@ -1207,7 +1216,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       time_of_wakeup.tv_sec = sec;
       time_of_wakeup.tv_nsec = nsec;
       //      pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex, &time_of_wakeup);
-      int rc = pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex, &time_of_wakeup);
+      int rc = pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex, &time_of_wakeup);  // this is a pthread cancellation point
       if (rc != 0)
         debug(3, "pthread_cond_timedwait returned error code %d.", rc);
 #endif
@@ -1222,24 +1231,24 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     }
   } while (wait);
 
-  if (conn->player_thread_please_stop) {
-    debug(3, "buffer_get_frame exiting due to thread stop request.");
-    debug_mutex_unlock(&conn->ab_mutex, 3);
-    return 0;
-  }
-
   // seq_t read = conn->ab_read;
-
-  if (!curframe->ready) {
-    // debug(1, "Supplying a silent frame for frame %u", read);
-    conn->missing_packets++;
-    curframe->timestamp = 0; // indicate a silent frame should be substituted
+  if (conn->player_thread_please_stop==0) {
+    if (!curframe->ready) {
+      // debug(1, "Supplying a silent frame for frame %u", read);
+      conn->missing_packets++;
+      curframe->timestamp = 0; // indicate a silent frame should be substituted
+    }
+    curframe->ready = 0;
+    curframe->resend_level = 0;
+    conn->ab_read = SUCCESSOR(conn->ab_read);
   }
-  curframe->ready = 0;
-  curframe->resend_level = 0;
-  conn->ab_read = SUCCESSOR(conn->ab_read);
-  debug_mutex_unlock(&conn->ab_mutex, 3);
-  return curframe;
+  
+  pthread_cleanup_pop(1);
+
+  if (conn->player_thread_please_stop)
+    return 0;
+  else
+    return curframe;
 }
 
 static inline short shortmean(short a, short b) {
@@ -1743,7 +1752,7 @@ void *player_thread_func(void *arg) {
 
   // debug(1, "Play begin");
   while (!conn->player_thread_please_stop) {
-    abuf_t *inframe = buffer_get_frame(conn);
+    abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s)
     if (inframe) {
       inbuf = inframe->data;
       inbuflength = inframe->length;
