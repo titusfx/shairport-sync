@@ -2703,8 +2703,7 @@ int player_play(rtsp_conn_info *conn) {
 }
 
 int player_stop(rtsp_conn_info *conn) {
-  // note -- this may be called from another connection thread or from the player thread itself
-  // as well as from the conn's own thread.
+  // note -- this may be called from another connection thread.
   debug(3, "player_stop");
   if (conn->player_thread) {
     debug(2, "player_thread cancel...");
