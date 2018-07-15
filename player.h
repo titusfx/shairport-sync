@@ -98,7 +98,6 @@ typedef struct {
   alac_file *decoder_info;
   uint64_t packet_count;
   int connection_state_to_output;
-  int player_thread_please_stop;
   uint64_t first_packet_time_to_play;
   int64_t time_since_play_started; // nanoseconds
                                    // stats
