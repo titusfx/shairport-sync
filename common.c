@@ -178,11 +178,26 @@ void debug(int level, const char *format, ...) {
 void inform(const char *format, ...) {
   char s[1024];
   s[0] = 0;
+  uint64_t time_now = get_absolute_time_in_fp();
+  uint64_t time_since_start = time_now - fp_time_at_startup;
+  uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
+  fp_time_at_last_debug_message = time_now;
+  uint64_t divisor = (uint64_t)1 << 32;
+  double tss = 1.0 * time_since_start / divisor;
+  double tsl = 1.0 * time_since_last_debug_message / divisor;
   va_list args;
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
-  daemon_log(LOG_INFO, "%s", s);
+
+  if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
+    daemon_log(LOG_INFO, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
+  else if ((debuglev) && (config.debugger_show_relative_time))
+    daemon_log(LOG_INFO, "% 20.9f|%s", tsl, s);
+  else if ((debuglev) && (config.debugger_show_elapsed_time))
+    daemon_log(LOG_INFO, "% 20.9f|%s", tss, s);
+  else
+    daemon_log(LOG_INFO, "%s", s);
 }
 
 // The following two functions are adapted slightly and with thanks from Jonathan Leffler's sample
@@ -1069,13 +1084,14 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
                                 const char *debugmessage, int debuglevel) {
 
+// this is not pthread_cancellation safe because is contains a cancellation point
   useconds_t time_to_wait = dally_time;
   int r = pthread_mutex_trylock(mutex);
   while ((r == EBUSY) && (time_to_wait > 0)) {
     useconds_t st = time_to_wait;
     if (st > 1000)
       st = 1000;
-    sps_nanosleep(0, st * 1000);
+    sps_nanosleep(0, st * 1000); // this contains a cancellation point
     time_to_wait -= st;
     r = pthread_mutex_trylock(mutex);
   }
@@ -1097,6 +1113,8 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 
 int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *filename,
                       const int line, int debuglevel) {
+  if (debuglevel > debuglev)
+    return pthread_mutex_lock(mutex);
   uint64_t time_at_start = get_absolute_time_in_fp();
   char dstring[1000];
   memset(dstring, 0, sizeof(dstring));
@@ -1117,6 +1135,8 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
 
 int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *filename, const int line,
                         int debuglevel) {
+  if (debuglevel > debuglev)
+    return pthread_mutex_unlock(mutex);
   char dstring[1000];
   char errstr[512];
   memset(dstring, 0, sizeof(dstring));

@@ -1420,6 +1420,17 @@ void player_thread_cleanup_handler(void *arg) {
   debug(1, "player_thread_cleanup_handler called");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 
+  debug(3, "Connection %d: player thread main loop exit.", conn->connection_number);
+
+  if (config.statistics_requested) {
+    int rawSeconds = (int)difftime(time(NULL), conn->playstart);
+    int elapsedHours = rawSeconds / 3600;
+    int elapsedMin = (rawSeconds / 60) % 60;
+    int elapsedSec = rawSeconds % 60;
+    inform("Playback Stopped. Total playing time %02d:%02d:%02d.", elapsedHours, elapsedMin,
+           elapsedSec);
+  }
+
 #ifdef HAVE_DACP_CLIENT
 
   relinquish_dacp_server_information(conn); // say it doesn't belong to this conversation thread any more...
@@ -1574,7 +1585,7 @@ void *player_thread_func(void *arg) {
   int32_t minimum_buffer_occupancy = INT32_MAX;
   int32_t maximum_buffer_occupancy = INT32_MIN;
 
-  time_t playstart = time(NULL);
+  conn->playstart = time(NULL);
 
   conn->buffer_occupancy = 0;
 
@@ -2264,7 +2275,7 @@ void *player_thread_func(void *arg) {
               if ((config.output->delay)) {
                 if (config.no_sync == 0) {
                   inform(
-                      " %*.1f," /* Sync error in milliseconds */
+                      " %10.1f," /* Sync error in milliseconds */
                       "%*.1f,"  /* net correction in ppm */
                       "%*.1f,"  /* corrections in ppm */
                       "%*d,"    /* total packets */
@@ -2275,8 +2286,8 @@ void *player_thread_func(void *arg) {
                       "%*lli,"  /* min DAC queue size */
                       "%*d,"    /* min buffer occupancy */
                       "%*d",    /* max buffer occupancy */
-                      9, /* should be 10, but there's an explicit space at the start to ensure
-                            alignment */
+                      //9, /* should be 10, but there's an explicit space at the start to ensure
+                      //      alignment */
                       1000 * moving_average_sync_error / config.output_rate,
                       10, moving_average_correction * 1000000 / (352 * conn->output_sample_ratio),
                       10, moving_average_insertions_plus_deletions * 1000000 /
@@ -2285,7 +2296,7 @@ void *player_thread_func(void *arg) {
                       conn->too_late_packets, 7, conn->resend_requests, 7, minimum_dac_queue_size,
                       5, minimum_buffer_occupancy, 5, maximum_buffer_occupancy);
                 } else {
-                  inform(" %*.1f," /* Sync error in milliseconds */
+                  inform(" %10.1f," /* Sync error in milliseconds */
                          "%*d,"    /* total packets */
                          "%*llu,"  /* missing packets */
                          "%*llu,"  /* late packets */
@@ -2294,8 +2305,8 @@ void *player_thread_func(void *arg) {
                          "%*lli,"  /* min DAC queue size */
                          "%*d,"    /* min buffer occupancy */
                          "%*d",    /* max buffer occupancy */
-                         9, /* should be 10, but there's an explicit space at the start to ensure
-                               alignment */
+                         // 9, /* should be 10, but there's an explicit space at the start to ensure
+                         //       alignment */
                          1000 * moving_average_sync_error / config.output_rate,
                          12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
                          conn->too_late_packets, 7, conn->resend_requests, 7,
@@ -2303,7 +2314,7 @@ void *player_thread_func(void *arg) {
                          maximum_buffer_occupancy);
                 }
               } else {
-                inform(" %*.1f," /* Sync error in milliseconds */
+                inform(" %10.1f," /* Sync error in milliseconds */
                        "%*d,"    /* total packets */
                        "%*llu,"  /* missing packets */
                        "%*llu,"  /* late packets */
@@ -2311,8 +2322,8 @@ void *player_thread_func(void *arg) {
                        "%*llu,"  /* resend requests */
                        "%*d,"    /* min buffer occupancy */
                        "%*d",    /* max buffer occupancy */
-                       9, /* should be 10, but there's an explicit space at the start to ensure
-                             alignment */
+                       // 9, /* should be 10, but there's an explicit space at the start to ensure
+                       //       alignment */
                        1000 * moving_average_sync_error / config.output_rate,
                        12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
                        conn->too_late_packets, 7, conn->resend_requests, 5,
@@ -2331,19 +2342,19 @@ void *player_thread_func(void *arg) {
     }
   }
 
+/* all done in the cleanup...
+
   debug(3, "Connection %d: player thread main loop exit.", conn->connection_number);
 
   if (config.statistics_requested) {
-    int rawSeconds = (int)difftime(time(NULL), playstart);
+    int rawSeconds = (int)difftime(time(NULL), conn->playstart);
     int elapsedHours = rawSeconds / 3600;
     int elapsedMin = (rawSeconds / 60) % 60;
     int elapsedSec = rawSeconds % 60;
     inform("Playback Stopped. Total playing time %02d:%02d:%02d.", elapsedHours, elapsedMin,
            elapsedSec);
   }
-
- /* all done in the cleanup...
-  
+   
 #ifdef HAVE_DACP_CLIENT
 
   relinquish_dacp_server_information(conn); // say it doesn't belong to this conversation thread any more...

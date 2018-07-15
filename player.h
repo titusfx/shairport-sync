@@ -81,6 +81,7 @@ typedef struct {
   SOCKADDR remote, local;
   int stop;
   int running;
+  time_t playstart;
   pthread_t thread, timer_requester, rtp_audio_thread, rtp_control_thread, rtp_timing_thread;
   // pthread_t *ptp;
   
