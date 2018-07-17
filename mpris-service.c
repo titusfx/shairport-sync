@@ -183,6 +183,13 @@ void mpris_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused)
   // media_player2_player_set_volume(mprisPlayerPlayerSkeleton, metadata_store.speaker_volume);
 }
 
+static gboolean on_handle_quit(MediaPlayer2 *skeleton, GDBusMethodInvocation *invocation,
+                               __attribute__((unused)) gpointer user_data) {
+  debug(1,"quit requested (MPRIS interface).");
+  media_player2_complete_quit(skeleton, invocation);
+  return TRUE;
+}
+
 static gboolean on_handle_next(MediaPlayer2Player *skeleton, GDBusMethodInvocation *invocation,
                                __attribute__((unused)) gpointer user_data) {
   send_simple_dacp_command("nextitem");
@@ -243,7 +250,7 @@ static void on_mpris_name_acquired(GDBusConnection *connection, const gchar *nam
 
   media_player2_set_desktop_entry(mprisPlayerSkeleton, "shairport-sync");
   media_player2_set_identity(mprisPlayerSkeleton, "Shairport Sync");
-  media_player2_set_can_quit(mprisPlayerSkeleton, FALSE);
+  media_player2_set_can_quit(mprisPlayerSkeleton, TRUE);
   media_player2_set_can_raise(mprisPlayerSkeleton, FALSE);
   media_player2_set_has_track_list(mprisPlayerSkeleton, FALSE);
   media_player2_set_supported_uri_schemes(mprisPlayerSkeleton, empty_string_array);
@@ -260,6 +267,8 @@ static void on_mpris_name_acquired(GDBusConnection *connection, const gchar *nam
   media_player2_player_set_can_pause(mprisPlayerPlayerSkeleton, TRUE);
   media_player2_player_set_can_seek(mprisPlayerPlayerSkeleton, FALSE);
   media_player2_player_set_can_control(mprisPlayerPlayerSkeleton, TRUE);
+
+  g_signal_connect(mprisPlayerSkeleton, "handle-quit", G_CALLBACK(on_handle_quit), NULL);
 
   g_signal_connect(mprisPlayerPlayerSkeleton, "handle-play", G_CALLBACK(on_handle_play), NULL);
   g_signal_connect(mprisPlayerPlayerSkeleton, "handle-pause", G_CALLBACK(on_handle_pause), NULL);

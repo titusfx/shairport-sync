@@ -1723,7 +1723,7 @@ static void apple_challenge(int fd, rtsp_message *req, rtsp_message *resp) {
   if (padding)
     *padding = 0;
 
-  msg_add_header(resp, "Apple-Response", encoded);
+  msg_add_header(resp, "Apple-Response", encoded); // will be freed when the response is freed.
   free(challresp);
   free(encoded);
 }
@@ -1737,7 +1737,7 @@ static char *make_nonce(void) {
   if (read(fd, random, sizeof(random)) != sizeof(random))
     debug(1, "Error reading /dev/random");
   close(fd);
-  return base64_enc(random, 8);
+  return base64_enc(random, 8); // returns a pointer to malloc'ed memory
 }
 
 static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
@@ -1888,6 +1888,48 @@ authenticate:
   return 1;
 }
 
+void rtsp_conversation_thread_cleanup_function(void *arg) {
+  debug(1,"rtsp_conversation_thread_func_cleanup_function called.");
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  if (conn->fd > 0)
+    close(conn->fd);
+  if (conn->auth_nonce) {
+    free(conn->auth_nonce);
+    conn->auth_nonce = NULL;
+  }
+  rtp_terminate(conn);
+  if (playing_conn == conn) {
+    debug(3, "Unlocking play lock on RTSP conversation thread %d.", conn->connection_number);
+    playing_conn = NULL;
+    pthread_mutex_unlock(&play_lock);
+  }
+
+  if (conn->dacp_id) {
+    free(conn->dacp_id);
+    conn->dacp_id = NULL;
+  }
+
+  debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
+  conn->running = 0;
+
+  // remove flow control and mutexes
+  int rc = pthread_cond_destroy(&conn->flowcontrol);
+  if (rc)
+    debug(1, "Connection %d: error %d destroying flow control condition variable.",
+          conn->connection_number, rc);
+  rc = pthread_mutex_destroy(&conn->ab_mutex);
+  if (rc)
+    debug(1, "Connection %d: error %d destroying ab_mutex.", conn->connection_number, rc);
+  rc = pthread_mutex_destroy(&conn->flush_mutex);
+  if (rc)
+    debug(1, "Connection %d: error %d destroying flush_mutex.", conn->connection_number, rc);
+ }
+
+void msg_cleanup_function(void *arg) {
+  debug(1,"msg_cleanup_function called.");
+  msg_free((rtsp_message *)arg);
+}
+
 static void *rtsp_conversation_thread_func(void *pconn) {
   rtsp_conn_info *conn = pconn;
 
@@ -1912,26 +1954,29 @@ static void *rtsp_conversation_thread_func(void *pconn) {
         conn->connection_number, rc);
 
   rtp_initialise(conn);
-
-  rtsp_message *req, *resp;
-  char *hdr, *auth_nonce = NULL;
+  char *hdr = NULL;
 
   enum rtsp_read_request_response reply;
 
   int rtsp_read_request_attempt_count = 1; // 1 means exit immediately
+  rtsp_message *req, *resp;
 
+  pthread_cleanup_push(rtsp_conversation_thread_cleanup_function,(void *)conn);
   while (conn->stop == 0) {
     int debug_level = 3; // for printing the request and response
-    reply = rtsp_read_request(conn, &req);
+    reply = rtsp_read_request(conn,&req);
     if (reply == rtsp_read_request_response_ok) {
+      pthread_cleanup_push(msg_cleanup_function,(void*)req);
+      resp = msg_init();
+      pthread_cleanup_push(msg_cleanup_function,(void*)resp);
+      resp->respcode = 400;
+
       if (strcmp(req->method, "OPTIONS") !=
           0) // the options message is very common, so don't log it until level 3
         debug_level = 2;
       debug(debug_level, "RTSP thread %d received an RTSP Packet of type \"%s\":",
             conn->connection_number, req->method),
           debug_print_msg_headers(debug_level, req);
-      resp = msg_init();
-      resp->respcode = 400;
 
       apple_challenge(conn->fd, req, resp);
       hdr = msg_get_header(req, "CSeq");
@@ -1940,7 +1985,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       //      msg_add_header(resp, "Audio-Jack-Status", "connected; type=analog");
       msg_add_header(resp, "Server", "AirTunes/105.1");
 
-      if ((conn->authorized == 1) || (rtsp_auth(&auth_nonce, req, resp)) == 0) {
+      if ((conn->authorized == 1) || (rtsp_auth(&conn->auth_nonce, req, resp)) == 0) {
         conn->authorized = 1; // it must have been authorized or didn't need a password
         struct method_handler *mh;
         int method_selected = 0;
@@ -1967,8 +2012,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (conn->stop == 0) {
         msg_write_response(conn->fd, resp);
       }
-      msg_free(req);
-      msg_free(resp);
+      pthread_cleanup_pop(1);
+      pthread_cleanup_pop(1);
     } else {
       int tstop = 0;
       if (reply == rtsp_read_request_response_immediate_shutdown_requested)
@@ -2009,37 +2054,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       }
     }
   }
-
-  if (conn->fd > 0)
-    close(conn->fd);
-  if (auth_nonce)
-    free(auth_nonce);
-  rtp_terminate(conn);
-  if (playing_conn == conn) {
-    debug(3, "Unlocking play lock on RTSP conversation thread %d.", conn->connection_number);
-    playing_conn = NULL;
-    pthread_mutex_unlock(&play_lock);
-  }
-
-  if (conn->dacp_id) {
-    free(conn->dacp_id);
-    conn->dacp_id = NULL;
-  }
-
-  debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
-  conn->running = 0;
-
-  // remove flow control and mutexes
-  rc = pthread_cond_destroy(&conn->flowcontrol);
-  if (rc)
-    debug(1, "Connection %d: error %d destroying flow control condition variable.",
-          conn->connection_number, rc);
-  rc = pthread_mutex_destroy(&conn->ab_mutex);
-  if (rc)
-    debug(1, "Connection %d: error %d destroying ab_mutex.", conn->connection_number, rc);
-  rc = pthread_mutex_destroy(&conn->flush_mutex);
-  if (rc)
-    debug(1, "Connection %d: error %d destroying flush_mutex.", conn->connection_number, rc);
+  pthread_cleanup_pop(1);
   pthread_exit(NULL);
 }
 
