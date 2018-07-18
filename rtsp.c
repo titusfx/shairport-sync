@@ -1889,7 +1889,7 @@ authenticate:
 }
 
 void rtsp_conversation_thread_cleanup_function(void *arg) {
-  debug(1,"rtsp_conversation_thread_func_cleanup_function called.");
+  debug(1, "rtsp_conversation_thread_func_cleanup_function called.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   if (conn->fd > 0)
     close(conn->fd);
@@ -1923,10 +1923,10 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   rc = pthread_mutex_destroy(&conn->flush_mutex);
   if (rc)
     debug(1, "Connection %d: error %d destroying flush_mutex.", conn->connection_number, rc);
- }
+}
 
 void msg_cleanup_function(void *arg) {
-  debug(1,"msg_cleanup_function called.");
+  debug(1, "msg_cleanup_function called.");
   msg_free((rtsp_message *)arg);
 }
 
@@ -1961,14 +1961,14 @@ static void *rtsp_conversation_thread_func(void *pconn) {
   int rtsp_read_request_attempt_count = 1; // 1 means exit immediately
   rtsp_message *req, *resp;
 
-  pthread_cleanup_push(rtsp_conversation_thread_cleanup_function,(void *)conn);
+  pthread_cleanup_push(rtsp_conversation_thread_cleanup_function, (void *)conn);
   while (conn->stop == 0) {
     int debug_level = 3; // for printing the request and response
-    reply = rtsp_read_request(conn,&req);
+    reply = rtsp_read_request(conn, &req);
     if (reply == rtsp_read_request_response_ok) {
-      pthread_cleanup_push(msg_cleanup_function,(void*)req);
+      pthread_cleanup_push(msg_cleanup_function, (void *)req);
       resp = msg_init();
-      pthread_cleanup_push(msg_cleanup_function,(void*)resp);
+      pthread_cleanup_push(msg_cleanup_function, (void *)resp);
       resp->respcode = 400;
 
       if (strcmp(req->method, "OPTIONS") !=
@@ -2176,6 +2176,7 @@ void rtsp_listen_loop(void) {
   int acceptfd;
   struct timeval tv;
   do {
+    pthread_testcancel();
     tv.tv_sec = 60;
     tv.tv_usec = 0;
 

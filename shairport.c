@@ -60,6 +60,11 @@
 #include <glib.h>
 #endif
 
+#include "common.h"
+#include "mdns.h"
+#include "rtp.h"
+#include "rtsp.h"
+
 #if defined(HAVE_DACP_CLIENT)
 #include "dacp.h"
 #endif
@@ -79,11 +84,6 @@
 #ifdef HAVE_MPRIS
 #include "mpris-service.h"
 #endif
-
-#include "common.h"
-#include "mdns.h"
-#include "rtp.h"
-#include "rtsp.h"
 
 #include <libdaemon/dexec.h>
 #include <libdaemon/dfork.h>
@@ -1131,7 +1131,7 @@ const char *pid_file_proc(void) {
 }
 
 void exit_function() {
-  // debug(1, "exit function called...");
+  debug(1, "exit function called...");
   if (config.cfg)
     config_destroy(config.cfg);
   if (config.appName)
@@ -1139,7 +1139,19 @@ void exit_function() {
   // probably should be freeing malloc'ed memory here, including strdup-created strings...
 }
 
+void main_cleanup_handler(__attribute__((unused)) void *arg) {
+
+  debug(1, "main cleanup handler called.");
+  shairport_shutdown();
+  daemon_log(LOG_NOTICE, "Unexpected exit...");
+  daemon_retval_send(0);
+  daemon_pid_file_remove();
+  daemon_signal_done();
+  exit(0);
+}
+
 int main(int argc, char **argv) {
+  memset((void *)&main_thread_id, 0, sizeof(main_thread_id));
   fp_time_at_startup = get_absolute_time_in_fp();
   fp_time_at_last_debug_message = fp_time_at_startup;
   //  debug(1,"startup");
@@ -1362,10 +1374,11 @@ int main(int argc, char **argv) {
       /* Close FDs */
       if (daemon_close_all(-1) < 0) {
         daemon_log(LOG_ERR, "Failed to close all file descriptors: %s", strerror(errno));
-
         /* Send the error condition to the parent process */
         daemon_retval_send(1);
-        goto finish;
+
+        daemon_signal_done();
+        return 0;
       }
 
       /* Create the PID file if required */
@@ -1376,12 +1389,16 @@ int main(int argc, char **argv) {
         if ((result != 0) && (result != -EEXIST)) {
           // error creating or accessing the PID file directory
           daemon_retval_send(3);
-          goto finish;
+
+          daemon_signal_done();
+          return 0;
         }
         if (daemon_pid_file_create() < 0) {
           daemon_log(LOG_ERR, "Could not create PID file (%s).", strerror(errno));
+
           daemon_retval_send(2);
-          goto finish;
+          daemon_signal_done();
+          return 0;
         }
       }
 
@@ -1391,10 +1408,21 @@ int main(int argc, char **argv) {
     /* end libdaemon stuff */
   }
 
+  // int old_cancel_state = 0;
+  // pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+  // pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &old_cancel_state);
+  main_thread_id = pthread_self();
+  if (main_thread_id)
+    debug(1, "Main thread ID set up.");
+  else
+    debug(1, "Main thread is set up to be NULL!");
+
   signal_setup();
 
   // make sure the program can create files that group and world can read
   umask(S_IWGRP | S_IWOTH);
+
+  pthread_cleanup_push(main_cleanup_handler, NULL);
 
   config.output = audio_get_output(config.output_name);
   if (!config.output) {
@@ -1587,10 +1615,11 @@ int main(int argc, char **argv) {
   rtsp_listen_loop();
 
   // should not reach this...
-  shairport_shutdown();
-finish:
-  daemon_log(LOG_NOTICE, "Unexpected exit...");
-  daemon_retval_send(255);
-  daemon_pid_file_remove();
-  return 1;
+  // shairport_shutdown();
+  // daemon_log(LOG_NOTICE, "Unexpected exit...");
+  // daemon_retval_send(0);
+  // daemon_pid_file_remove();
+  pthread_cleanup_pop(1);
+  debug(1, "Odd exit point");
+  pthread_exit(NULL);
 }

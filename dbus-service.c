@@ -545,9 +545,13 @@ gboolean notify_loop_status_callback(ShairportSyncAdvancedRemoteControl *skeleto
 }
 
 static gboolean on_handle_quit(ShairportSync *skeleton, GDBusMethodInvocation *invocation,
-                                         __attribute__((unused)) const gchar *command,
-                                         __attribute__((unused)) gpointer user_data) {
+                               __attribute__((unused)) const gchar *command,
+                               __attribute__((unused)) gpointer user_data) {
   debug(1, "quit requested (native interface)");
+  if (main_thread_id)
+    debug(1, "Cancelling main thread results in %d.", pthread_cancel(main_thread_id));
+  else
+    debug(1, "Main thread ID is NULL.");
   shairport_sync_complete_quit(skeleton, invocation);
   return TRUE;
 }
@@ -597,8 +601,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
   g_signal_connect(shairportSyncSkeleton, "notify::loudness-threshold",
                    G_CALLBACK(notify_loudness_threshold_callback), NULL);
 
-  g_signal_connect(shairportSyncSkeleton, "handle-quit",
-                   G_CALLBACK(on_handle_quit), NULL);
+  g_signal_connect(shairportSyncSkeleton, "handle-quit", G_CALLBACK(on_handle_quit), NULL);
 
   g_signal_connect(shairportSyncSkeleton, "handle-remote-command",
                    G_CALLBACK(on_handle_remote_command), NULL);

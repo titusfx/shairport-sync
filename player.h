@@ -74,9 +74,9 @@ typedef struct {
                            // otherwise
   int64_t maximum_latency; // set if an a=max-latency: line appears in the ANNOUNCE message; zero
                            // otherwise
-  
+
   int fd;
-  int authorized; // set if a password is required and has been supplied
+  int authorized;   // set if a password is required and has been supplied
   char *auth_nonce; // the session nonce, if needed
   stream_cfg stream;
   SOCKADDR remote, local;

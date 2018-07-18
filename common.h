@@ -2,6 +2,7 @@
 #define _COMMON_H
 
 #include <libconfig.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
 #include <sys/socket.h>
@@ -79,6 +80,7 @@ typedef struct {
   char *password;
   char *service_name; // the name for the shairport service, e.g. "Shairport Sync Version %v running
                       // on host %h"
+
 #ifdef CONFIG_PA
   char *pa_application_name; // the name under which Shairport Sync shows up as an "Application" in
                              // the Sound Preferences in most desktop Linuxes.
@@ -262,6 +264,9 @@ uint64_t fp_time_at_startup, fp_time_at_last_debug_message;
 
 long endianness;
 uint32_t uatoi(const char *nptr);
+
+// this is for allowing us to cancel the whole program
+pthread_t main_thread_id;
 
 shairport_cfg config;
 config_t config_file_stuff;
