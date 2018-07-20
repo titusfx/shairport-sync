@@ -92,6 +92,7 @@ struct metadata_bundle metadata_store;
 void add_metadata_watcher(metadata_watcher fn, void *userdata);
 
 void metadata_hub_init(void);
+void metadata_hub_stop(void);
 void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t length);
 void metadata_hub_reset_track_metadata(void);
 void metadata_hub_release_track_artwork(void);

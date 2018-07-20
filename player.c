@@ -315,16 +315,18 @@ static int alac_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_co
   }
 
   if (outsize > toutsize) {
-    debug(2, "Output from alac_decode larger (%d bytes, not frames) than expected (%d bytes) -- "
-             "truncated, but buffer overflow possible! Encrypted = %d.",
+    debug(2,
+          "Output from alac_decode larger (%d bytes, not frames) than expected (%d bytes) -- "
+          "truncated, but buffer overflow possible! Encrypted = %d.",
           outsize, toutsize, conn->stream.encrypted);
     reply = -1; // output packet is the wrong size
   }
 
   *destlen = outsize / conn->input_bytes_per_frame;
   if ((outsize % conn->input_bytes_per_frame) != 0)
-    debug(1, "Number of audio frames (%d) does not correspond exactly to the number of bytes (%d) "
-             "and the audio frame size (%d).",
+    debug(1,
+          "Number of audio frames (%d) does not correspond exactly to the number of bytes (%d) "
+          "and the audio frame size (%d).",
           *destlen, outsize, conn->input_bytes_per_frame);
   return reply;
 }
@@ -614,8 +616,9 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, int64_t timestamp
                 if (config.disable_resend_requests == 0) {
                   if (((int)(resend_interval * pow(j + 1, step_exponent)) + k) >=
                       seq_diff(conn->ab_read, conn->ab_write, conn->ab_read))
-                    debug(3, "Last-ditch (#%d) resend request for packet %u in range %u to %u. "
-                             "Looking back %d packets.",
+                    debug(3,
+                          "Last-ditch (#%d) resend request for packet %u in range %u to %u. "
+                          "Looking back %d packets.",
                           j, next, conn->ab_read, conn->ab_write, back_step + k);
                   debug_mutex_unlock(&conn->ab_mutex, 3);
                   rtp_request_resend(next, 1, conn);
@@ -807,8 +810,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       //      if (conn->packet_count>500) { //for testing -- about 4 seconds of play first
       if ((local_time_now > conn->time_of_last_audio_packet) &&
           (local_time_now - conn->time_of_last_audio_packet >= ct << 32)) {
-        debug(1, "As Yeats almost said, \"Too long a silence / can make a stone of the heart\" "
-                 "from RTSP conversation %d.",
+        debug(1,
+              "As Yeats almost said, \"Too long a silence / can make a stone of the heart\" "
+              "from RTSP conversation %d.",
               conn->connection_number);
         conn->stop = 1;
         pthread_kill(conn->thread, SIGUSR1);
@@ -1649,17 +1653,17 @@ void *player_thread_func(void *arg) {
   // if ((input_rate!=config.output_rate) || (input_bit_depth!=output_bit_depth)) {
   // debug(1,"Define tbuf of length
   // %d.",output_bytes_per_frame*(max_frames_per_packet*output_sample_ratio+max_frame_size_change));
-  conn->tbuf =
-      malloc(sizeof(int32_t) * 2 * (conn->max_frames_per_packet * conn->output_sample_ratio +
-                                    conn->max_frame_size_change));
+  conn->tbuf = malloc(
+      sizeof(int32_t) * 2 *
+      (conn->max_frames_per_packet * conn->output_sample_ratio + conn->max_frame_size_change));
   if (conn->tbuf == NULL)
     die("Failed to allocate memory for the transition buffer.");
 
   // initialise this, because soxr stuffing might be chosen later
 
-  conn->sbuf =
-      malloc(sizeof(int32_t) * 2 * (conn->max_frames_per_packet * conn->output_sample_ratio +
-                                    conn->max_frame_size_change));
+  conn->sbuf = malloc(
+      sizeof(int32_t) * 2 *
+      (conn->max_frames_per_packet * conn->output_sample_ratio + conn->max_frame_size_change));
   if (conn->sbuf == NULL)
     die("Failed to allocate memory for the sbuf buffer.");
 
@@ -1770,8 +1774,9 @@ void *player_thread_func(void *arg) {
           } else {
             // the player may change the contents of the buffer, so it has to be zeroed each time;
             // might as well malloc and freee it locally
-            memset(silence, 0, conn->output_bytes_per_frame * conn->max_frames_per_packet *
-                                   conn->output_sample_ratio);
+            memset(silence, 0,
+                   conn->output_bytes_per_frame * conn->max_frames_per_packet *
+                       conn->output_sample_ratio);
             config.output->play(silence, conn->max_frames_per_packet * conn->output_sample_ratio);
             free(silence);
           }
@@ -1791,8 +1796,9 @@ void *player_thread_func(void *arg) {
           } else {
             // the player may change the contents of the buffer, so it has to be zeroed each time;
             // might as well malloc and freee it locally
-            memset(silence, 0, conn->output_bytes_per_frame * conn->max_frames_per_packet *
-                                   conn->output_sample_ratio);
+            memset(silence, 0,
+                   conn->output_bytes_per_frame * conn->max_frames_per_packet *
+                       conn->output_sample_ratio);
             config.output->play(silence, conn->max_frames_per_packet * conn->output_sample_ratio);
             free(silence);
           }
@@ -1939,8 +1945,9 @@ void *player_thread_func(void *arg) {
                 SUCCESSOR(conn->last_seqno_read); // int32_t from seq_t, i.e. uint16_t, so okay.
             if (inframe->sequence_number !=
                 conn->last_seqno_read) { // seq_t, ei.e. uint16_t and int32_t, so okay
-              debug(2, "Player: packets out of sequence: expected: %u, got: %u, with ab_read: %u "
-                       "and ab_write: %u.",
+              debug(2,
+                    "Player: packets out of sequence: expected: %u, got: %u, with ab_read: %u "
+                    "and ab_write: %u.",
                     conn->last_seqno_read, inframe->sequence_number, conn->ab_read, conn->ab_write);
               conn->last_seqno_read = inframe->sequence_number; // reset warning...
             }
@@ -2091,7 +2098,7 @@ void *player_thread_func(void *arg) {
 #ifdef CONFIG_CONVOLUTION
                   || config.convolution
 #endif
-                  ) {
+              ) {
                 int32_t *tbuf32 = (int32_t *)conn->tbuf;
                 float fbuf_l[inbuflength];
                 float fbuf_r[inbuflength];
@@ -2280,26 +2287,25 @@ void *player_thread_func(void *arg) {
             if (at_least_one_frame_seen) {
               if ((config.output->delay)) {
                 if (config.no_sync == 0) {
-                  inform("|%*.1f," /* Sync error in milliseconds */
-                         "%*.1f,"  /* net correction in ppm */
-                         "%*.1f,"  /* corrections in ppm */
-                         "%*d,"    /* total packets */
-                         "%*llu,"  /* missing packets */
-                         "%*llu,"  /* late packets */
-                         "%*llu,"  /* too late packets */
-                         "%*llu,"  /* resend requests */
-                         "%*lli,"  /* min DAC queue size */
-                         "%*d,"    /* min buffer occupancy */
-                         "%*d",    /* max buffer occupancy */
-                         10,
-                         1000 * moving_average_sync_error / config.output_rate, 10,
-                         moving_average_correction * 1000000 / (352 * conn->output_sample_ratio),
-                         10, moving_average_insertions_plus_deletions * 1000000 /
-                                 (352 * conn->output_sample_ratio),
-                         12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
-                         conn->too_late_packets, 7, conn->resend_requests, 7,
-                         minimum_dac_queue_size, 5, minimum_buffer_occupancy, 5,
-                         maximum_buffer_occupancy);
+                  inform(
+                      "|%*.1f," /* Sync error in milliseconds */
+                      "%*.1f,"  /* net correction in ppm */
+                      "%*.1f,"  /* corrections in ppm */
+                      "%*d,"    /* total packets */
+                      "%*llu,"  /* missing packets */
+                      "%*llu,"  /* late packets */
+                      "%*llu,"  /* too late packets */
+                      "%*llu,"  /* resend requests */
+                      "%*lli,"  /* min DAC queue size */
+                      "%*d,"    /* min buffer occupancy */
+                      "%*d",    /* max buffer occupancy */
+                      10, 1000 * moving_average_sync_error / config.output_rate, 10,
+                      moving_average_correction * 1000000 / (352 * conn->output_sample_ratio), 10,
+                      moving_average_insertions_plus_deletions * 1000000 /
+                          (352 * conn->output_sample_ratio),
+                      12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
+                      conn->too_late_packets, 7, conn->resend_requests, 7, minimum_dac_queue_size,
+                      5, minimum_buffer_occupancy, 5, maximum_buffer_occupancy);
                 } else {
                   inform("|%*.1f," /* Sync error in milliseconds */
                          "%*d,"    /* total packets */
@@ -2310,10 +2316,9 @@ void *player_thread_func(void *arg) {
                          "%*lli,"  /* min DAC queue size */
                          "%*d,"    /* min buffer occupancy */
                          "%*d",    /* max buffer occupancy */
-                         10,
-                         1000 * moving_average_sync_error / config.output_rate, 12, play_number, 7,
-                         conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets, 7,
-                         conn->resend_requests, 7, minimum_dac_queue_size, 5,
+                         10, 1000 * moving_average_sync_error / config.output_rate, 12, play_number,
+                         7, conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets,
+                         7, conn->resend_requests, 7, minimum_dac_queue_size, 5,
                          minimum_buffer_occupancy, 5, maximum_buffer_occupancy);
                 }
               } else {
@@ -2325,10 +2330,9 @@ void *player_thread_func(void *arg) {
                        "%*llu,"  /* resend requests */
                        "%*d,"    /* min buffer occupancy */
                        "%*d",    /* max buffer occupancy */
-                       10,
-                       1000 * moving_average_sync_error / config.output_rate, 12, play_number, 7,
-                       conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets, 7,
-                       conn->resend_requests, 5, minimum_buffer_occupancy, 5,
+                       10, 1000 * moving_average_sync_error / config.output_rate, 12, play_number,
+                       7, conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets,
+                       7, conn->resend_requests, 5, minimum_buffer_occupancy, 5,
                        maximum_buffer_occupancy);
               }
             } else {

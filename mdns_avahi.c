@@ -385,21 +385,27 @@ static int avahi_register(char *srvname, int srvport) {
 static void avahi_unregister(void) {
   debug(1, "avahi: avahi_unregister.");
   if (tpoll) {
-    avahi_threaded_poll_stop(tpoll);
+    //    debug(1, "avahi: stop the threaded poll.");
+    //    avahi_threaded_poll_stop(tpoll);
 
     if (client) {
+      debug(1, "avahi: free the client.");
       avahi_client_free(client);
       client = NULL;
     } else {
       debug(1, "avahi attempting to unregister a NULL client");
     }
+    debug(1, "avahi: free the threaded poll.");
     avahi_threaded_poll_free(tpoll);
     tpoll = NULL;
+  } else {
+    debug(1, "No avahi threaded poll.");
   }
 
-  if (service_name)
+  if (service_name) {
+    debug(1, "avahi: free the service name.");
     free(service_name);
-  else
+  } else
     debug(1, "avahi attempt to free NULL service name");
   service_name = NULL;
 }

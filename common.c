@@ -120,7 +120,6 @@ void die(const char *format, ...) {
     daemon_log(LOG_EMERG, "% 20.9f|*fatal error: %s", tss, s);
   else
     daemon_log(LOG_EMERG, "fatal error: %s", s);
-  shairport_shutdown();
   exit(1);
 }
 
@@ -748,21 +747,17 @@ double flat_vol2attn(double vol, long max_db, long min_db) {
 
 double vol2attn(double vol, long max_db, long min_db) {
 
-// We use a little coordinate geometry to build a transfer function from the volume passed in to the
-// device's dynamic range.
-// (See the diagram in the documents folder.)
-// The x axis is the "volume in" which will be from -30 to 0. The y axis will be the "volume out"
-// which will be from the bottom of the range to the top.
-// We build the transfer function from one or more lines. We characterise each line with two
-// numbers:
-// the first is where on x the line starts when y=0 (x can be from 0 to -30); the second is where on
-// y the line stops when when x is -30.
-// thus, if the line was characterised as {0,-30}, it would be an identity transfer.
-// Assuming, for example, a dynamic range of lv=-60 to hv=0
-// Typically we'll use three lines -- a three order transfer function
-// First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
-// Second: {-5,-30-(lv+30)/2} giving a faster slope from y=0 at x=-12 to y=-42.5 at x=-30
-// Third: {-17,lv} giving a fast slope from y=0 at x=-19 to y=-60 at x=-30
+  // We use a little coordinate geometry to build a transfer function from the volume passed in to
+  // the device's dynamic range. (See the diagram in the documents folder.) The x axis is the
+  // "volume in" which will be from -30 to 0. The y axis will be the "volume out" which will be from
+  // the bottom of the range to the top. We build the transfer function from one or more lines. We
+  // characterise each line with two numbers: the first is where on x the line starts when y=0 (x
+  // can be from 0 to -30); the second is where on y the line stops when when x is -30. thus, if the
+  // line was characterised as {0,-30}, it would be an identity transfer. Assuming, for example, a
+  // dynamic range of lv=-60 to hv=0 Typically we'll use three lines -- a three order transfer
+  // function First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
+  // Second: {-5,-30-(lv+30)/2} giving a faster slope from y=0 at x=-12 to y=-42.5 at x=-30
+  // Third: {-17,lv} giving a fast slope from y=0 at x=-19 to y=-60 at x=-30
 
 #define order 3
 
@@ -965,8 +960,6 @@ int64_t r64i() { return (ranval(&rx) >> 1); }
 
 /* generate an array of 64-bit random numbers */
 const int ranarraylength = 1009; // these will be 8-byte numbers.
-
-uint64_t *ranarray;
 
 int ranarraynext;
 

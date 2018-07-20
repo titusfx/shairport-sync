@@ -101,8 +101,6 @@ static pthread_mutex_t reference_counter_lock = PTHREAD_MUTEX_INITIALIZER;
 // static int please_shutdown = 0;
 // static pthread_t playing_thread = 0;
 
-static rtsp_conn_info **conns = NULL;
-
 int RTSP_connection_index = 1;
 
 #ifdef CONFIG_METADATA
@@ -154,6 +152,12 @@ void pc_queue_init(pc_queue *the_queue, char *items, size_t item_size, uint32_t 
   the_queue->capacity = number_of_items;
   the_queue->toq = 0;
   the_queue->eoq = 0;
+}
+
+void pc_queue_delete(pc_queue *the_queue) {
+  pthread_cond_destroy(&the_queue->pc_queue_item_removed_signal);
+  pthread_cond_destroy(&the_queue->pc_queue_item_added_signal);
+  pthread_mutex_destroy(&the_queue->pc_queue_lock);
 }
 
 int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rtsp_message *carrier,
@@ -263,6 +267,21 @@ static void track_thread(rtsp_conn_info *conn) {
     nconns++;
   } else {
     die("could not reallocate memnory for \"conns\" in rtsp.c.");
+  }
+}
+
+void cancel_all_RTSP_threads(void) {
+  int i;
+  for (i = 0; i < nconns; i++) {
+    debug(1, "Connection %d: cancelling.", conns[i]->connection_number);
+    pthread_cancel(conns[i]->thread);
+  }
+  for (i = 0; i < nconns; i++) {
+    debug(1, "Connection %d: joining.", conns[i]->connection_number);
+    pthread_join(conns[i]->thread, NULL);
+    if (conns[i] == playing_conn)
+      playing_conn = NULL;
+    free(conns[i]);
   }
 }
 
@@ -719,9 +738,10 @@ static void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_me
                            rtsp_message *resp) {
   debug(3, "Connection %d: OPTIONS", conn->connection_number);
   resp->respcode = 200;
-  msg_add_header(resp, "Public", "ANNOUNCE, SETUP, RECORD, "
-                                 "PAUSE, FLUSH, TEARDOWN, "
-                                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
+  msg_add_header(resp, "Public",
+                 "ANNOUNCE, SETUP, RECORD, "
+                 "PAUSE, FLUSH, TEARDOWN, "
+                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
 }
 
 static void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
@@ -853,10 +873,11 @@ static void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *
   }
 
   char resphdr[256] = "";
-  snprintf(resphdr, sizeof(resphdr), "RTP/AVP/"
-                                     "UDP;unicast;interleaved=0-1;mode=record;control_port=%d;"
-                                     "timing_port=%d;server_"
-                                     "port=%d",
+  snprintf(resphdr, sizeof(resphdr),
+           "RTP/AVP/"
+           "UDP;unicast;interleaved=0-1;mode=record;control_port=%d;"
+           "timing_port=%d;server_"
+           "port=%d",
            conn->local_control_port, conn->local_timing_port, conn->local_audio_port);
 
   msg_add_header(resp, "Transport", resphdr);
@@ -1051,9 +1072,9 @@ static char *metadata_sockmsg;
 #define metadata_queue_size 500
 metadata_package metadata_queue_items[metadata_queue_size];
 
-static pthread_t metadata_thread;
+pthread_t metadata_thread;
 
-void metadata_create(void) {
+void metadata_create_multicast_socket(void) {
   if (config.metadata_enabled == 0)
     return;
 
@@ -1075,7 +1096,7 @@ void metadata_create(void) {
       if (metadata_sockmsg) {
         memset(metadata_sockmsg, 0, config.metadata_sockmsglength);
       } else {
-        die("Could not malloc metadata socket buffer");
+        die("Could not malloc metadata multicast socket buffer");
       }
     }
   }
@@ -1092,6 +1113,15 @@ void metadata_create(void) {
 
   free(path);
   umask(oldumask);
+}
+
+void metadata_delete_multicast_socket(void) {
+  if (config.metadata_enabled == 0)
+    return;
+  shutdown(metadata_sock, SHUT_RDWR); // we want to immediately deallocate the buffer
+  close(metadata_sock);
+  if (metadata_sockmsg)
+    free(metadata_sockmsg);
 }
 
 void metadata_open(void) {
@@ -1111,12 +1141,12 @@ void metadata_open(void) {
   free(path);
 }
 
-/*
 static void metadata_close(void) {
+  if (fd < 0)
+    return;
   close(fd);
   fd = -1;
 }
-*/
 
 void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length) {
   // debug(2, "Process metadata with type %x, code %x and length %u.", type, code, length);
@@ -1238,11 +1268,32 @@ void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length)
   }
 }
 
+void metadata_thread_cleanup_function(__attribute__((unused)) void *arg) {
+  debug(1, "metadata_thread_cleanup_function called");
+  metadata_delete_multicast_socket();
+  metadata_close();
+  pc_queue_delete(&metadata_queue);
+}
+
+void metadata_pack_cleanup_function(void *arg) {
+  debug(1, "metadata_pack_cleanup_function called");
+  metadata_package *pack = (metadata_package *)arg;
+  if (pack->carrier)
+    msg_free(pack->carrier); // release the message
+  else if (pack->data)
+    free(pack->data);
+}
+
 void *metadata_thread_function(__attribute__((unused)) void *ignore) {
-  metadata_create();
+  // create a pc_queue for passing information to a threaded metadata handler
+  pc_queue_init(&metadata_queue, (char *)&metadata_queue_items, sizeof(metadata_package),
+                metadata_queue_size);
+  metadata_create_multicast_socket();
   metadata_package pack;
+  pthread_cleanup_push(metadata_thread_cleanup_function, NULL);
   while (1) {
     pc_queue_get_item(&metadata_queue, &pack);
+    pthread_cleanup_push(metadata_pack_cleanup_function, (void *)&pack);
     if (config.metadata_enabled) {
       metadata_process(pack.type, pack.code, pack.data, pack.length);
 #ifdef HAVE_METADATA_HUB
@@ -1254,21 +1305,22 @@ void *metadata_thread_function(__attribute__((unused)) void *ignore) {
       }
 #endif
     }
-    if (pack.carrier)
-      msg_free(pack.carrier); // release the message
-    else if (pack.data)
-      free(pack.data);
+    pthread_cleanup_pop(1);
   }
+  pthread_cleanup_pop(1); // will never happen
   pthread_exit(NULL);
 }
 
 void metadata_init(void) {
-  // create a pc_queue for passing information to a threaded metadata handler
-  pc_queue_init(&metadata_queue, (char *)&metadata_queue_items, sizeof(metadata_package),
-                metadata_queue_size);
   int ret = pthread_create(&metadata_thread, NULL, metadata_thread_function, NULL);
   if (ret)
     debug(1, "Failed to create metadata thread!");
+}
+
+void metadata_stop(void) {
+  debug(1, "metadata_stop called.");
+  pthread_cancel(metadata_thread);
+  pthread_join(metadata_thread, NULL);
 }
 
 int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rtsp_message *carrier,
@@ -1379,7 +1431,7 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
   char *ct = msg_get_header(req, "Content-Type");
 
   if (ct) {
-// debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
+    // debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
 
 #ifdef CONFIG_METADATA
     // It seems that the rtptime of the message is used as a kind of an ID that
@@ -1889,8 +1941,9 @@ authenticate:
 }
 
 void rtsp_conversation_thread_cleanup_function(void *arg) {
-  debug(1, "rtsp_conversation_thread_func_cleanup_function called.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
+        conn->connection_number);
   if (conn->fd > 0)
     close(conn->fd);
   if (conn->auth_nonce) {
@@ -1974,8 +2027,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (strcmp(req->method, "OPTIONS") !=
           0) // the options message is very common, so don't log it until level 3
         debug_level = 2;
-      debug(debug_level, "RTSP thread %d received an RTSP Packet of type \"%s\":",
-            conn->connection_number, req->method),
+      debug(debug_level,
+            "RTSP thread %d received an RTSP Packet of type \"%s\":", conn->connection_number,
+            req->method),
           debug_print_msg_headers(debug_level, req);
 
       apple_challenge(conn->fd, req, resp);
@@ -2077,6 +2131,14 @@ static const char *format_address(struct sockaddr *fsa) {
 }
 */
 
+void rtsp_listen_loop_cleanup_handler(__attribute__((unused)) void *arg) {
+  debug(1, "rtsp_listen_loop_cleanup_handler called.");
+  int *sockfd = (int *)arg;
+  mdns_unregister();
+  if (sockfd)
+    free(sockfd);
+}
+
 void rtsp_listen_loop(void) {
   struct addrinfo hints, *info, *p;
   char portstr[6];
@@ -2175,6 +2237,7 @@ void rtsp_listen_loop(void) {
 
   int acceptfd;
   struct timeval tv;
+  pthread_cleanup_push(rtsp_listen_loop_cleanup_handler, (void *)sockfd);
   do {
     pthread_testcancel();
     tv.tv_sec = 60;
@@ -2272,11 +2335,6 @@ void rtsp_listen_loop(void) {
     }
   } while (1);
 
-  mdns_unregister();
-
-  if (sockfd)
-    free(sockfd);
-
-  // perror("select");
-  // die("fell out of the RTSP select loop");
+  pthread_cleanup_pop(0);
+  debug(1, "Oops -- fell out of the RTSP select loop");
 }

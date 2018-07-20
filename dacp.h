@@ -14,6 +14,7 @@ typedef struct dacp_speaker_stuff {
 } dacp_spkr_stuff;
 
 void dacp_monitor_start();
+void dacp_monitor_stop();
 
 uint32_t dacp_tlv_crawl(
     char **p,

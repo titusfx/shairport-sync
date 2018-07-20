@@ -90,10 +90,28 @@ void metadata_hub_release_track_metadata(struct track_metadata_bundle *track_met
   }
 }
 
+void metadata_hub_release_track_artwork(void) {
+  // debug(1,"release track artwork");
+  release_char_string(&metadata_store.cover_art_pathname);
+}
+
 void metadata_hub_init(void) {
   // debug(1, "Metadata bundle initialisation.");
   memset(&metadata_store, 0, sizeof(metadata_store));
   track_metadata = NULL;
+}
+
+void metadata_hub_stop(void) {
+  debug(1, "metadata_hub_stop.");
+  metadata_hub_release_track_artwork();
+  if (metadata_store.track_metadata) {
+    metadata_hub_release_track_metadata(metadata_store.track_metadata);
+    metadata_store.track_metadata = NULL;
+  }
+  if (track_metadata) {
+    metadata_hub_release_track_metadata(track_metadata);
+    track_metadata = NULL;
+  }
 }
 
 void add_metadata_watcher(metadata_watcher fn, void *userdata) {
@@ -108,32 +126,34 @@ void add_metadata_watcher(metadata_watcher fn, void *userdata) {
   }
 }
 
-void metadata_hub_modify_prolog(void) {
-  // always run this before changing an entry or a sequence of entries in the metadata_hub
-  // debug(1, "locking metadata hub for writing");
-  if (pthread_rwlock_trywrlock(&metadata_hub_re_lock) != 0) {
-    debug(2, "Metadata_hub write lock is already taken -- must wait.");
-    pthread_rwlock_wrlock(&metadata_hub_re_lock);
-    debug(2, "Okay -- acquired the metadata_hub write lock.");
-  }
-}
-
-void metadata_hub_release_track_artwork(void) {
-  // debug(1,"release track artwork");
-  release_char_string(&metadata_store.cover_art_pathname);
+void metadata_hub_unlock_hub_mutex_cleanup(__attribute__((unused)) void *arg) {
+  debug(1, "metadata_hub_unlock_hub_mutex_cleanup called.");
+  pthread_rwlock_wrlock(&metadata_hub_re_lock);
 }
 
 void run_metadata_watchers(void) {
   int i;
   // debug(1, "locking metadata hub for reading");
   pthread_rwlock_rdlock(&metadata_hub_re_lock);
+  pthread_cleanup_push(metadata_hub_unlock_hub_mutex_cleanup, NULL);
   for (i = 0; i < number_of_watchers; i++) {
     if (metadata_store.watchers[i]) {
       metadata_store.watchers[i](&metadata_store, metadata_store.watchers_data[i]);
     }
   }
   // debug(1, "unlocking metadata hub for reading");
-  pthread_rwlock_unlock(&metadata_hub_re_lock);
+  // pthread_rwlock_unlock(&metadata_hub_re_lock);
+  pthread_cleanup_pop(1);
+}
+
+void metadata_hub_modify_prolog(void) {
+  // always run this before changing an entry or a sequence of entries in the metadata_hub
+  // debug(1, "locking metadata hub for writing");
+  if (pthread_rwlock_trywrlock(&metadata_hub_re_lock) != 0) {
+    debug(2, "Metadata_hub write lock is already taken -- must wait.");
+    pthread_rwlock_unlock(&metadata_hub_re_lock);
+    debug(2, "Okay -- acquired the metadata_hub write lock.");
+  }
 }
 
 void metadata_hub_modify_epilog(int modified) {
@@ -197,7 +217,7 @@ char *metadata_write_image_file(const char *buf, int len) {
   char *path = NULL; // this will be what is returned
 
   uint8_t img_md5[16];
-// uint8_t ap_md5[16];
+  // uint8_t ap_md5[16];
 
 #ifdef HAVE_LIBSSL
   MD5_CTX ctx;

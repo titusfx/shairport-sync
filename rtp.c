@@ -108,8 +108,9 @@ void *rtp_audio_receiver(void *arg) {
       stat_mean += stat_delta / stat_n;
       stat_M2 += stat_delta * (time_interval_us - stat_mean);
       if (stat_n % 2500 == 0) {
-        debug(2, "Packet reception interval stats: mean, standard deviation and max for the last "
-                 "2,500 packets in microseconds: %10.1f, %10.1f, %10.1f.",
+        debug(2,
+              "Packet reception interval stats: mean, standard deviation and max for the last "
+              "2,500 packets in microseconds: %10.1f, %10.1f, %10.1f.",
               stat_mean, sqrtf(stat_M2 / (stat_n - 1)), longest_packet_time_interval_us);
         stat_n = 0;
         stat_mean = 0.0;
@@ -325,9 +326,10 @@ void *rtp_control_receiver(void *arg) {
 
                 if (la != conn->latency) {
                   conn->latency = la;
-                  debug(3, "New latency detected: %" PRId64 ", sync latency: %" PRId64
-                           ", minimum latency: %" PRId64 ", maximum "
-                           "latency: %" PRId64 ", fixed offset: %" PRId64 ".",
+                  debug(3,
+                        "New latency detected: %" PRId64 ", sync latency: %" PRId64
+                        ", minimum latency: %" PRId64 ", maximum "
+                        "latency: %" PRId64 ", fixed offset: %" PRId64 ".",
                         la, sync_rtp_timestamp - rtp_timestamp_less_latency, conn->minimum_latency,
                         conn->maximum_latency, config.fixedLatencyOffset);
                 }
@@ -957,8 +959,9 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
                    (struct sockaddr *)&conn->rtp_client_control_socket, msgsize) == -1) {
           char em[1024];
           strerror_r(errno, em, sizeof(em));
-          debug(1, "Error %d using sendto to an audio socket: \"%s\". Backing off for 1/16th of a "
-                   "second.",
+          debug(1,
+                "Error %d using sendto to an audio socket: \"%s\". Backing off for 1/16th of a "
+                "second.",
                 errno, em);
           conn->rtp_time_of_last_resend_request_error_fp = time_of_sending_fp;
         } else {

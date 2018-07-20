@@ -36,7 +36,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -117,22 +116,11 @@ static int shutting_down = 0;
 char configuration_file_path[4096 + 1];
 char actual_configuration_file_path[4096 + 1];
 
-void shairport_shutdown() {
-  if (shutting_down)
-    return;
-  shutting_down = 1;
-  mdns_unregister();
-  rtsp_request_shutdown_stream();
-  if (config.output)
-    config.output->deinit();
-}
-
 static void sig_ignore(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
                        __attribute__((unused)) void *baz) {}
 static void sig_shutdown(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
                          __attribute__((unused)) void *baz) {
   debug(1, "shutdown requested...");
-  shairport_shutdown();
   //  daemon_log(LOG_NOTICE, "exit...");
   daemon_retval_send(255);
   daemon_pid_file_remove();
@@ -392,6 +380,7 @@ int parse_options(int argc, char **argv) {
     debug(2, "Looking for configuration file at full path \"%s\"", config_file_real_path);
     /* Read the file. If there is an error, report it and exit. */
     if (config_read_file(&config_file_stuff, config_file_real_path)) {
+      free(config_file_real_path);
       // make config.cfg point to it
       config.cfg = &config_file_stuff;
       /* Get the Service Name. */
@@ -938,7 +927,6 @@ int parse_options(int argc, char **argv) {
     config_set_lookup_bool(config.cfg, "mqtt.publish_cover", &config.mqtt_publish_cover);
     config_set_lookup_bool(config.cfg, "mqtt.enable_remote", &config.mqtt_enable_remote);
 #endif
-    free(config_file_real_path);
   }
 
   // now, do the command line options again, but this time do them fully -- it's a unix convention
@@ -1063,13 +1051,14 @@ int parse_options(int argc, char **argv) {
 }
 
 #if defined(HAVE_DBUS) || defined(HAVE_MPRIS)
-GMainLoop *loop;
+GMainLoop *g_main_loop;
 
 pthread_t dbus_thread;
 void *dbus_thread_func(__attribute__((unused)) void *arg) {
-  loop = g_main_loop_new(NULL, FALSE);
-  g_main_loop_run(loop);
-  return NULL;
+  g_main_loop = g_main_loop_new(NULL, FALSE);
+  g_main_loop_run(g_main_loop);
+  debug(1, "g_main_loop thread exit");
+  pthread_exit(NULL);
 }
 #endif
 
@@ -1132,6 +1121,17 @@ const char *pid_file_proc(void) {
 
 void exit_function() {
   debug(1, "exit function called...");
+  cancel_all_RTSP_threads();
+  if (conns)
+    free(conns); // make sure the connections have been deleted first
+  if (config.service_name)
+    free(config.service_name);
+  if (config.regtype)
+    free(config.regtype);
+  if (config.computed_piddir)
+    free(config.computed_piddir);
+  if (ranarray)
+    free((void *)ranarray);
   if (config.cfg)
     config_destroy(config.cfg);
   if (config.appName)
@@ -1142,7 +1142,38 @@ void exit_function() {
 void main_cleanup_handler(__attribute__((unused)) void *arg) {
 
   debug(1, "main cleanup handler called.");
-  shairport_shutdown();
+#ifdef HAVE_MQTT
+  if (config.mqtt_enabled) {
+    // terminate_mqtt();
+  }
+#endif
+
+#if defined(HAVE_DBUS) || defined(HAVE_MPRIS)
+#ifdef HAVE_MPRIS
+  // stop_mpris_service();
+#endif
+#ifdef HAVE_DBUS
+  stop_dbus_service();
+#endif
+  debug(1, "Stopping DBUS Loop Thread");
+  g_main_loop_quit(g_main_loop);
+  pthread_join(dbus_thread, NULL);
+#endif
+
+#ifdef HAVE_DACP_CLIENT
+  debug(1, "Stopping DACP Monitor");
+  dacp_monitor_stop();
+#endif
+
+#ifdef HAVE_METADATA_HUB
+  debug(1, "Stopping metadata hub");
+  metadata_hub_stop();
+#endif
+
+#ifdef CONFIG_METADATA
+  metadata_stop(); // close down the metadata pipe
+#endif
+
   daemon_log(LOG_NOTICE, "Unexpected exit...");
   daemon_retval_send(0);
   daemon_pid_file_remove();
@@ -1151,6 +1182,7 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
 }
 
 int main(int argc, char **argv) {
+  conns = NULL; // no connections active
   memset((void *)&main_thread_id, 0, sizeof(main_thread_id));
   fp_time_at_startup = get_absolute_time_in_fp();
   fp_time_at_last_debug_message = fp_time_at_startup;
@@ -1408,13 +1440,8 @@ int main(int argc, char **argv) {
     /* end libdaemon stuff */
   }
 
-  // int old_cancel_state = 0;
-  // pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
-  // pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &old_cancel_state);
   main_thread_id = pthread_self();
-  if (main_thread_id)
-    debug(1, "Main thread ID set up.");
-  else
+  if (!main_thread_id)
     debug(1, "Main thread is set up to be NULL!");
 
   signal_setup();
@@ -1552,8 +1579,9 @@ int main(int argc, char **argv) {
   debug(1, "loudness is %d.", config.loudness);
   debug(1, "loudness reference level is %f", config.loudness_reference_volume_db);
   debug(1, "disable resend requests is %s.", config.disable_resend_requests ? "on" : "off");
-  debug(1, "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
-           "deliberately.",
+  debug(1,
+        "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
+        "deliberately.",
         config.diagnostic_drop_packet_fraction);
 
   uint8_t ap_md5[16];
@@ -1615,7 +1643,6 @@ int main(int argc, char **argv) {
   rtsp_listen_loop();
 
   // should not reach this...
-  // shairport_shutdown();
   // daemon_log(LOG_NOTICE, "Unexpected exit...");
   // daemon_retval_send(0);
   // daemon_pid_file_remove();

@@ -229,6 +229,7 @@ void r64init(uint64_t seed);
 uint64_t r64u();
 int64_t r64i();
 
+uint64_t *ranarray;
 void r64arrayinit();
 uint64_t ranarray64u();
 int64_t ranarray64i();

@@ -407,8 +407,9 @@ static int init(int argc, char **argv) {
               (1.0 * alsa_mix_maxdb) / 100.0);
       } else {
         // use the linear scale and do the db conversion ourselves
-        debug(1, "note: the hardware mixer specified -- \"%s\" -- does not have "
-                 "a dB volume scale.",
+        debug(1,
+              "note: the hardware mixer specified -- \"%s\" -- does not have "
+              "a dB volume scale.",
               alsa_mix_ctrl);
 
         if (snd_ctl_open(&ctl, alsa_mix_dev, 0) < 0) {
@@ -661,8 +662,9 @@ int open_alsa_device(void) {
           buffer_size);
     }
     */
-    debug(1, "The alsa buffer is smaller (%lu bytes) than the desired backend buffer "
-             "length (%ld) you have chosen.",
+    debug(1,
+          "The alsa buffer is smaller (%lu bytes) than the desired backend buffer "
+          "length (%ld) you have chosen.",
           actual_buffer_length, config.audio_backend_buffer_desired_length);
   }
 

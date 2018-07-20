@@ -19,6 +19,8 @@ ShairportSyncDiagnostics *shairportSyncDiagnosticsSkeleton = NULL;
 ShairportSyncRemoteControl *shairportSyncRemoteControlSkeleton = NULL;
 ShairportSyncAdvancedRemoteControl *shairportSyncAdvancedRemoteControlSkeleton = NULL;
 
+guint ownerID = 0;
+
 void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused)) void *userdata) {
   char response[100];
   const char *th;
@@ -744,6 +746,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 static void on_dbus_name_lost_again(__attribute__((unused)) GDBusConnection *connection,
                                     __attribute__((unused)) const gchar *name,
                                     __attribute__((unused)) gpointer user_data) {
+  debug(1, "Name lost again.");
   warn("Could not acquire a Shairport Sync native D-Bus interface \"%s\" on the %s bus.", name,
        (config.dbus_service_bus_type == DBT_session) ? "session" : "system");
 }
@@ -751,6 +754,7 @@ static void on_dbus_name_lost_again(__attribute__((unused)) GDBusConnection *con
 static void on_dbus_name_lost(__attribute__((unused)) GDBusConnection *connection,
                               __attribute__((unused)) const gchar *name,
                               __attribute__((unused)) gpointer user_data) {
+  debug(1, "Name lost.");
   // debug(1, "Could not acquire a Shairport Sync native D-Bus interface \"%s\" on the %s bus --
   // will try adding the process "
   //         "number to the end of it.",
@@ -774,7 +778,15 @@ int start_dbus_service() {
     dbus_bus_type = G_BUS_TYPE_SESSION;
   // debug(1, "Looking for a Shairport Sync native D-Bus interface \"org.gnome.ShairportSync\" on
   // the %s bus.",(config.dbus_service_bus_type == DBT_session) ? "session" : "system");
-  g_bus_own_name(dbus_bus_type, "org.gnome.ShairportSync", G_BUS_NAME_OWNER_FLAGS_NONE, NULL,
-                 on_dbus_name_acquired, on_dbus_name_lost, NULL, NULL);
+  ownerID = g_bus_own_name(dbus_bus_type, "org.gnome.ShairportSync", G_BUS_NAME_OWNER_FLAGS_NONE,
+                           NULL, on_dbus_name_acquired, on_dbus_name_lost, NULL, NULL);
   return 0; // this is just to quieten a compiler warning
+}
+
+void stop_dbus_service() {
+  debug(1, "stopping dbus service");
+  if (ownerID)
+    g_bus_unown_name(ownerID);
+  else
+    debug(1, "Zero OwnerID for \"org.gnome.ShairportSync\".");
 }

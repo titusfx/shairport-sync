@@ -110,7 +110,10 @@ static void response_code(void *opaque, int code) {
 }
 
 static const struct http_funcs responseFuncs = {
-    response_realloc, response_body, response_header, response_code,
+    response_realloc,
+    response_body,
+    response_header,
+    response_code,
 };
 
 // static pthread_mutex_t dacp_conversation_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -261,8 +264,9 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
       // debug(1,"Sent command\"%s\" with a response body of size %d.",command,response.size);
       // debug(1,"dacp_conversation_lock released.");
     } else {
-      debug(3, "Could not acquire a lock on the dacp transmit/receive section when attempting to "
-               "send the command \"%s\". Possible timeout?",
+      debug(3,
+            "Could not acquire a lock on the dacp transmit/receive section when attempting to "
+            "send the command \"%s\". Possible timeout?",
             command);
       response.code = 494; // This client is already busy
     }
@@ -384,6 +388,12 @@ void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
   pthread_cond_signal(&dacp_server_information_cv);
   pthread_mutex_unlock(&dacp_server_information_lock);
 }
+
+void dacp_monitor_thread_code_cleanup(__attribute__((unused)) void *arg) {
+  debug(1, "dacp_monitor_thread_code_cleanup called.");
+  pthread_mutex_unlock(&dacp_server_information_lock);
+}
+
 void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
   int scan_index = 0;
   // char server_reply[10000];
@@ -397,14 +407,18 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
     sps_pthread_mutex_timedlock(
         &dacp_server_information_lock, 500000,
         "dacp_monitor_thread_code couldn't get DACP server information lock in 0.5 second!.", 2);
+    int32_t the_volume;
+
+    pthread_cleanup_push(dacp_monitor_thread_code_cleanup, NULL);
     if (dacp_server.scan_enable == 0) {
       metadata_hub_modify_prolog();
       int ch = (metadata_store.dacp_server_active != 0) ||
                (metadata_store.advanced_dacp_server_active != 0);
       metadata_store.dacp_server_active = 0;
       metadata_store.advanced_dacp_server_active = 0;
-      debug(2, "setting dacp_server_active and advanced_dacp_server_active to 0 with an update "
-               "flag value of %d",
+      debug(2,
+            "setting dacp_server_active and advanced_dacp_server_active to 0 with an update "
+            "flag value of %d",
             ch);
       metadata_hub_modify_epilog(ch);
       while (dacp_server.scan_enable == 0) {
@@ -416,7 +430,6 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
       idle_scan_count = 0;
     }
     scan_index++;
-    int32_t the_volume;
     result = dacp_get_volume(&the_volume); // just want the http code
 
     if ((result == 496) || (result == 403) || (result == 501)) {
@@ -438,7 +451,9 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
       debug(1, "DACP server status scanning stopped.");
       dacp_server.scan_enable = 0;
     }
-    pthread_mutex_unlock(&dacp_server_information_lock);
+    pthread_cleanup_pop(1);
+
+    // pthread_mutex_unlock(&dacp_server_information_lock);
     // debug(1, "DACP Server ID \"%u\" at \"%s:%u\", scan %d.", dacp_server.active_remote_id,
     //      dacp_server.ip_string, dacp_server.port, scan_index);
 
@@ -764,7 +779,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
         sleep(config.scan_interval_when_inactive);
     }
   }
-  debug(1, "DACP monitor thread exiting.");
+  debug(1, "DACP monitor thread exiting -- should never happen.");
   pthread_exit(NULL);
 }
 
@@ -814,6 +829,14 @@ void dacp_monitor_start() {
 
   memset(&dacp_server, 0, sizeof(dacp_server_record));
   pthread_create(&dacp_monitor_thread, NULL, dacp_monitor_thread_code, NULL);
+}
+
+void dacp_monitor_stop() {
+  debug(1, "dacp_monitor_stop");
+  pthread_cancel(dacp_monitor_thread);
+  pthread_join(dacp_monitor_thread, NULL);
+  pthread_mutex_destroy(&dacp_server_information_lock);
+  pthread_mutex_destroy(&dacp_conversation_lock);
 }
 
 uint32_t dacp_tlv_crawl(char **p, int32_t *length) {

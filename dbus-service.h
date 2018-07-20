@@ -6,5 +6,6 @@
 ShairportSync *shairportSyncSkeleton;
 
 int start_dbus_service();
+void stop_dbus_service();
 
 #endif /* #ifndef DBUS_SERVICE_H */
