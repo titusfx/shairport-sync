@@ -294,12 +294,10 @@ void relinquish_dacp_server_information(rtsp_conn_info *conn) {
   // as the conn's connection number
   // this is to signify that the player has stopped, but only if another thread (with a different
   // index) hasn't already taken over the dacp service
-  sps_pthread_mutex_timedlock(
-      &dacp_server_information_lock, 500000,
-      "set_dacp_server_information couldn't get DACP server information lock in 0.5 second!.", 2);
+  debug_mutex_lock(&dacp_server_information_lock, 500000, 2);
   if (dacp_server.players_connection_thread_index == conn->connection_number)
     dacp_server.players_connection_thread_index = 0;
-  pthread_mutex_unlock(&dacp_server_information_lock);
+  debug_mutex_unlock(&dacp_server_information_lock, 3);
 }
 
 // this will be running on the thread of its caller, not of the conversation thread...
@@ -309,9 +307,7 @@ void relinquish_dacp_server_information(rtsp_conn_info *conn) {
 // Thus, we can keep the DACP port that might have previously been discovered
 void set_dacp_server_information(rtsp_conn_info *conn) {
   // debug(1, "set_dacp_server_information");
-  sps_pthread_mutex_timedlock(
-      &dacp_server_information_lock, 500000,
-      "set_dacp_server_information couldn't get DACP server information lock in 0.5 second!.", 2);
+  debug_mutex_lock(&dacp_server_information_lock, 500000, 2);
   dacp_server.players_connection_thread_index = conn->connection_number;
 
   if ((conn->dacp_id == NULL) || (strcmp(conn->dacp_id, dacp_server.dacp_id) != 0)) {
@@ -360,23 +356,20 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
   debug(2, "set_dacp_server_information set active-remote id to %" PRIu32 ".",
         dacp_server.active_remote_id);
   pthread_cond_signal(&dacp_server_information_cv);
-  pthread_mutex_unlock(&dacp_server_information_lock);
+  debug_mutex_unlock(&dacp_server_information_lock, 3);
 }
 
 void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
   debug(2, "dacp_monitor_port_update_callback with Remote ID \"%s\" and port number %d.", dacp_id,
         port);
-  sps_pthread_mutex_timedlock(
-      &dacp_server_information_lock, 500000,
-      "dacp_monitor_port_update_callback couldn't get DACP server information lock in 0.5 second!.",
-      2);
+  debug_mutex_lock(&dacp_server_information_lock, 500000, 2);
   if (strcmp(dacp_id, dacp_server.dacp_id) == 0) {
     dacp_server.port = port;
     if (port == 0)
       dacp_server.scan_enable = 0;
     else {
       dacp_server.scan_enable = 1;
-      debug(2, "dacp_monitor_port_update_callback enables scan");
+      // debug(2, "dacp_monitor_port_update_callback enables scan");
     }
     //    metadata_hub_modify_prolog();
     //    int ch = metadata_store.dacp_server_active != dacp_server.scan_enable;
@@ -386,11 +379,11 @@ void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
     debug(1, "dacp port monitor reporting on an out-of-use remote.");
   }
   pthread_cond_signal(&dacp_server_information_cv);
-  pthread_mutex_unlock(&dacp_server_information_lock);
+  debug_mutex_unlock(&dacp_server_information_lock, 3);
 }
 
 void dacp_monitor_thread_code_cleanup(__attribute__((unused)) void *arg) {
-  debug(1, "dacp_monitor_thread_code_cleanup called.");
+  // debug(1, "dacp_monitor_thread_code_cleanup called.");
   pthread_mutex_unlock(&dacp_server_information_lock);
 }
 

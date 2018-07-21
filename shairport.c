@@ -1121,7 +1121,7 @@ const char *pid_file_proc(void) {
 
 void exit_function() {
   debug(1, "exit function called...");
-  cancel_all_RTSP_threads();
+  // cancel_all_RTSP_threads();
   if (conns)
     free(conns); // make sure the connections have been deleted first
   if (config.service_name)

@@ -127,8 +127,8 @@ void add_metadata_watcher(metadata_watcher fn, void *userdata) {
 }
 
 void metadata_hub_unlock_hub_mutex_cleanup(__attribute__((unused)) void *arg) {
-  debug(1, "metadata_hub_unlock_hub_mutex_cleanup called.");
-  pthread_rwlock_wrlock(&metadata_hub_re_lock);
+  // debug(1, "metadata_hub_unlock_hub_mutex_cleanup called.");
+  pthread_rwlock_unlock(&metadata_hub_re_lock);
 }
 
 void run_metadata_watchers(void) {

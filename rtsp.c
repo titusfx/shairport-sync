@@ -1276,7 +1276,7 @@ void metadata_thread_cleanup_function(__attribute__((unused)) void *arg) {
 }
 
 void metadata_pack_cleanup_function(void *arg) {
-  debug(1, "metadata_pack_cleanup_function called");
+  // debug(1, "metadata_pack_cleanup_function called");
   metadata_package *pack = (metadata_package *)arg;
   if (pack->carrier)
     msg_free(pack->carrier); // release the message
@@ -1944,6 +1944,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
         conn->connection_number);
+  player_stop(conn);
   if (conn->fd > 0)
     close(conn->fd);
   if (conn->auth_nonce) {
@@ -1979,7 +1980,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
 }
 
 void msg_cleanup_function(void *arg) {
-  debug(1, "msg_cleanup_function called.");
+  // debug(1, "msg_cleanup_function called.");
   msg_free((rtsp_message *)arg);
 }
 
@@ -2133,6 +2134,7 @@ static const char *format_address(struct sockaddr *fsa) {
 
 void rtsp_listen_loop_cleanup_handler(__attribute__((unused)) void *arg) {
   debug(1, "rtsp_listen_loop_cleanup_handler called.");
+  cancel_all_RTSP_threads();
   int *sockfd = (int *)arg;
   mdns_unregister();
   if (sockfd)
