@@ -123,31 +123,31 @@ static pthread_mutex_t dacp_server_information_lock;
 static pthread_cond_t dacp_server_information_cv = PTHREAD_COND_INITIALIZER;
 
 void addrinfo_cleanup(void *arg) {
-  debug(1, "addrinfo cleanup called.");
+  // debug(1, "addrinfo cleanup called.");
   struct addrinfo **info = (struct addrinfo **)arg;
   freeaddrinfo(*info);
 }
 
 void mutex_lock_cleanup(void *arg) {
-  debug(1, "mutex lock cleanup called.");
+  // debug(1, "mutex lock cleanup called.");
   pthread_mutex_t *m = (pthread_mutex_t *)arg;
   pthread_mutex_unlock(m);
 }
 
 void connect_cleanup(void *arg) {
-  debug(1, "connect cleanup called.");
+  // debug(1, "connect cleanup called.");
   int *fd = (int *)arg;
   close(*fd);
 }
 
 void http_cleanup(void *arg) {
-  debug(1, "http cleanup called.");
+  // debug(1, "http cleanup called.");
   struct http_roundtripper *rt = (struct http_roundtripper *)arg;
   http_free(rt);
 }
 
 void malloc_cleanup(void *arg) {
-  debug(1, "malloc cleanup called.");
+  // debug(1, "malloc cleanup called.");
   free(arg);
 }
 
