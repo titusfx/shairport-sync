@@ -1942,8 +1942,8 @@ authenticate:
 
 void rtsp_conversation_thread_cleanup_function(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
-        conn->connection_number);
+  //debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
+  //      conn->connection_number);
   player_stop(conn);
   if (conn->fd > 0)
     close(conn->fd);
