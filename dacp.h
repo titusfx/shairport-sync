@@ -10,7 +10,7 @@ typedef struct dacp_speaker_stuff {
   int64_t speaker_number;
   int active;
   int32_t volume;
-  char *name; // this is really just for debugging
+  char name[128]; // this is really just for debugging
 } dacp_spkr_stuff;
 
 void dacp_monitor_start();

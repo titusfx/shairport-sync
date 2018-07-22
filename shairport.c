@@ -1173,7 +1173,10 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
 #ifdef CONFIG_METADATA
   metadata_stop(); // close down the metadata pipe
 #endif
-
+  if (config.output->deinit) {
+    debug(1,"Deinitialise the audio backend.");
+    config.output->deinit();
+  }
   daemon_log(LOG_NOTICE, "Unexpected exit...");
   daemon_retval_send(0);
   daemon_pid_file_remove();
@@ -1449,7 +1452,6 @@ int main(int argc, char **argv) {
   // make sure the program can create files that group and world can read
   umask(S_IWGRP | S_IWOTH);
 
-  pthread_cleanup_push(main_cleanup_handler, NULL);
 
   config.output = audio_get_output(config.output_name);
   if (!config.output) {
@@ -1457,6 +1459,8 @@ int main(int argc, char **argv) {
     die("Invalid audio output specified!");
   }
   config.output->init(argc - audio_arg, argv + audio_arg);
+
+  pthread_cleanup_push(main_cleanup_handler, NULL);
 
   // daemon_log(LOG_NOTICE, "startup");
 

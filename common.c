@@ -399,7 +399,8 @@ uint8_t *base64_dec(char *input, int *outlen) {
 
   nread = BIO_read(b64, buf, bufsize);
 
-  BIO_free_all(bmem);
+  // BIO_free_all(bmem);
+  BIO_free_all(b64);
 
   *outlen = nread;
   return buf;

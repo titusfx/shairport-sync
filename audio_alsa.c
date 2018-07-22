@@ -908,6 +908,7 @@ static void flush(void) {
   debug_mutex_lock(&alsa_mutex, 10000, 1);
   int derr;
   do_mute(1);
+  
   if (alsa_handle) {
 
     if ((derr = snd_pcm_drop(alsa_handle)))
