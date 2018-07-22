@@ -1683,7 +1683,7 @@ void *player_thread_func(void *arg) {
 
 // stop looking elsewhere for DACP stuff
 #ifdef HAVE_DACP_CLIENT
-  debug(1, "Set dacp server info");
+  // debug(1, "Set dacp server info");
   // this does not have pthread cancellation points in it (assuming avahi doesn't)
   set_dacp_server_information(conn); //  this will start scanning when a port is registered by the
                                      // code initiated by the mdns_dacp_monitor
@@ -1697,7 +1697,6 @@ void *player_thread_func(void *arg) {
     // this does not have pthread cancellation points in it (assuming avahi doesn't)
     conn->dapo_private_storage = mdns_dacp_monitor(conn->dacp_id); // ??
 #endif
-  debug(1, "Get radio");
 
   conn->framesProcessedInThisEpoch = 0;
   conn->framesGeneratedInThisEpoch = 0;

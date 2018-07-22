@@ -441,8 +441,6 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
     BIO_free(bmem);
   }
 
-  debug(1, "RSA_size(rsa) is %d", RSA_size(rsa));
-
   uint8_t *out = malloc(RSA_size(rsa));
   switch (mode) {
   case RSA_MODE_AUTH:
