@@ -1705,7 +1705,7 @@ void *player_thread_func(void *arg) {
   if (config.statistics_requested) {
     if ((config.output->delay)) {
       if (config.no_sync == 0) {
-        inform("| sync error in milliseconds, "
+        inform("sync error in milliseconds, "
                "net correction in ppm, "
                "corrections in ppm, "
                "total packets, "
@@ -1717,7 +1717,7 @@ void *player_thread_func(void *arg) {
                "min buffer occupancy, "
                "max buffer occupancy");
       } else {
-        inform("| sync error in milliseconds, "
+        inform("sync error in milliseconds, "
                "total packets, "
                "missing packets, "
                "late packets, "
@@ -1728,7 +1728,7 @@ void *player_thread_func(void *arg) {
                "max buffer occupancy");
       }
     } else {
-      inform("| sync error in milliseconds, "
+      inform("sync error in milliseconds, "
              "total packets, "
              "missing packets, "
              "late packets, "
@@ -2289,7 +2289,7 @@ void *player_thread_func(void *arg) {
               if ((config.output->delay)) {
                 if (config.no_sync == 0) {
                   inform(
-                      "|%*.1f," /* Sync error in milliseconds */
+                      "%*.1f," /* Sync error in milliseconds */
                       "%*.1f,"  /* net correction in ppm */
                       "%*.1f,"  /* corrections in ppm */
                       "%*d,"    /* total packets */
@@ -2308,7 +2308,7 @@ void *player_thread_func(void *arg) {
                       conn->too_late_packets, 7, conn->resend_requests, 7, minimum_dac_queue_size,
                       5, minimum_buffer_occupancy, 5, maximum_buffer_occupancy);
                 } else {
-                  inform("|%*.1f," /* Sync error in milliseconds */
+                  inform("%*.1f," /* Sync error in milliseconds */
                          "%*d,"    /* total packets */
                          "%*llu,"  /* missing packets */
                          "%*llu,"  /* late packets */
@@ -2323,7 +2323,7 @@ void *player_thread_func(void *arg) {
                          minimum_buffer_occupancy, 5, maximum_buffer_occupancy);
                 }
               } else {
-                inform("|%*.1f," /* Sync error in milliseconds */
+                inform("%*.1f," /* Sync error in milliseconds */
                        "%*d,"    /* total packets */
                        "%*llu,"  /* missing packets */
                        "%*llu,"  /* late packets */
