@@ -919,9 +919,9 @@ static void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *r
 #ifdef CONFIG_METADATA
         if (!strncmp(cp, "progress: ", 10)) {
       char *progress = cp + 10;
-      // debug(2, "progress: \"%s\"\n",
-      //      progress); // rtpstampstart/rtpstampnow/rtpstampend 44100 per second
+      // debug(2, "progress: \"%s\"\n",progress); // rtpstampstart/rtpstampnow/rtpstampend 44100 per second
       send_ssnc_metadata('prgr', strdup(progress), strlen(progress), 1);
+      
     } else
 #endif
     {
@@ -1528,7 +1528,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
 
     if (!playing_conn)
       die("Non existent playing_conn with play_lock enabled.");
-    debug(1, "RTSP Conversation thread %d already playing when asked by thread %d.",
+    debug(1, "Connection %d: already playing when asked by connection %d.",
           playing_conn->connection_number, conn->connection_number);
     if (playing_conn->stop) {
       debug(1, "Playing connection is already shutting down; waiting for it...");
@@ -1553,7 +1553,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     if (pthread_mutex_trylock(&play_lock) == 0)
       have_the_player = 1;
     else
-      debug(1, "ANNOUNCE failed to get the player");
+      debug(1, "Connection %d: ANNOUNCE failed to get the player", conn->connection_number);
   }
 
   if (have_the_player) {
@@ -1694,7 +1694,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     resp->respcode = 200;
   } else {
     resp->respcode = 453;
-    debug(1, "Already playing.");
+    debug(1, "Connection %d: failed because a connection is already playing.", conn->connection_number);
   }
 
 out:
@@ -1942,11 +1942,14 @@ authenticate:
 
 void rtsp_conversation_thread_cleanup_function(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  //debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
-  //      conn->connection_number);
+  debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
+        conn->connection_number);
   player_stop(conn);
-  if (conn->fd > 0)
+  if (conn->fd > 0) {
+    debug(1, "Connection %d: closing fd %d.",
+        conn->connection_number,conn->fd);    
     close(conn->fd);
+  }
   if (conn->auth_nonce) {
     free(conn->auth_nonce);
     conn->auth_nonce = NULL;
@@ -2276,7 +2279,7 @@ void rtsp_listen_loop(void) {
 
     conn->fd = accept(acceptfd, (struct sockaddr *)&conn->remote, &slen);
     if (conn->fd < 0) {
-      debug(1, "New RTSP connection on port %d not accepted:", config.port);
+      debug(1, "Connection %d: New connection on port %d not accepted:", conn->connection_number, config.port);
       perror("failed to accept connection");
       free(conn);
     } else {
@@ -2295,8 +2298,8 @@ void rtsp_listen_loop(void) {
           sa = (struct sockaddr_in *)&conn->remote;
           inet_ntop(AF_INET, &(sa->sin_addr), remote_ip4, INET_ADDRSTRLEN);
           unsigned short int rport = ntohs(sa->sin_port);
-          debug(2, "New RTSP connection from %s:%u to self at %s:%u on conversation thread %d.",
-                remote_ip4, rport, ip4, tport, conn->connection_number);
+          debug(1, "Connection %d: new connection from %s:%u to self at %s:%u.",
+                conn->connection_number,remote_ip4, rport, ip4, tport);
         }
 #ifdef AF_INET6
         if (local_info->SAFAMILY == AF_INET6) {
@@ -2312,8 +2315,8 @@ void rtsp_listen_loop(void) {
           sa6 = (struct sockaddr_in6 *)&conn->remote; // pretend this is loaded with something
           inet_ntop(AF_INET6, &(sa6->sin6_addr), remote_ip6, INET6_ADDRSTRLEN);
           u_int16_t rport = ntohs(sa6->sin6_port);
-          debug(2, "New RTSP connection from [%s]:%u to self at [%s]:%u on conversation thread %d.",
-                remote_ip6, rport, ip6, tport, conn->connection_number);
+          debug(1, "Connection %d: new connection from [%s]:%u to self at [%s]:%u.",
+                conn->connection_number, remote_ip6, rport, ip6, tport);
         }
 #endif
 
