@@ -1942,12 +1942,12 @@ authenticate:
 
 void rtsp_conversation_thread_cleanup_function(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
-        conn->connection_number);
+  //debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
+  //      conn->connection_number);
   player_stop(conn);
   if (conn->fd > 0) {
-    debug(1, "Connection %d: closing fd %d.",
-        conn->connection_number,conn->fd);    
+    // debug(1, "Connection %d: closing fd %d.",
+    //    conn->connection_number,conn->fd);    
     close(conn->fd);
   }
   if (conn->auth_nonce) {
@@ -2298,7 +2298,7 @@ void rtsp_listen_loop(void) {
           sa = (struct sockaddr_in *)&conn->remote;
           inet_ntop(AF_INET, &(sa->sin_addr), remote_ip4, INET_ADDRSTRLEN);
           unsigned short int rport = ntohs(sa->sin_port);
-          debug(1, "Connection %d: new connection from %s:%u to self at %s:%u.",
+          debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
                 conn->connection_number,remote_ip4, rport, ip4, tport);
         }
 #ifdef AF_INET6
@@ -2315,7 +2315,7 @@ void rtsp_listen_loop(void) {
           sa6 = (struct sockaddr_in6 *)&conn->remote; // pretend this is loaded with something
           inet_ntop(AF_INET6, &(sa6->sin6_addr), remote_ip6, INET6_ADDRSTRLEN);
           u_int16_t rport = ntohs(sa6->sin6_port);
-          debug(1, "Connection %d: new connection from [%s]:%u to self at [%s]:%u.",
+          debug(2, "Connection %d: new connection from [%s]:%u to self at [%s]:%u.",
                 conn->connection_number, remote_ip6, rport, ip6, tport);
         }
 #endif
