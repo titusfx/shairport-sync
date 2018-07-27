@@ -316,8 +316,11 @@ void ask_other_rtsp_conversation_threads_to_stop(pthread_t except_this_thread) {
   for (i = 0; i < nconns; i++) {
     if (((except_this_thread == 0) || (pthread_equal(conns[i]->thread, except_this_thread) == 0)) &&
         (conns[i]->running != 0)) {
-      conns[i]->stop = 1;
-      pthread_kill(conns[i]->thread, SIGUSR1);
+      pthread_cancel(conns[i]->thread);
+      pthread_join(conns[i]->thread,NULL);
+      debug(1,"Connection %d: asked to stop.",conns[i]->connection_number);
+      // conns[i]->stop = 1;
+      // pthread_kill(conns[i]->thread, SIGUSR1);
     }
   }
 }

@@ -815,7 +815,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               "from RTSP conversation %d.",
               conn->connection_number);
         conn->stop = 1;
-        pthread_kill(conn->thread, SIGUSR1);
+        pthread_cancel(conn->thread);
+        // pthread_kill(conn->thread, SIGUSR1);
       }
     }
     int rco = get_requested_connection_state_to_output();
