@@ -86,9 +86,15 @@ typedef struct {
   pthread_t thread, timer_requester, rtp_audio_thread, rtp_control_thread, rtp_timing_thread;
   // pthread_t *ptp;
 
+  // buffers to delete on exit
   signed short *tbuf;
   int32_t *sbuf;
   char *outbuf;
+  
+  // for holding the rate information until printed out at the end of a session
+  double frame_rate;
+  int frame_rate_status;
+  
 
   pthread_t *player_thread;
   abuf_t audio_buffer[BUFFER_FRAMES];

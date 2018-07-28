@@ -1435,8 +1435,12 @@ void player_thread_cleanup_handler(void *arg) {
     int elapsedHours = rawSeconds / 3600;
     int elapsedMin = (rawSeconds / 60) % 60;
     int elapsedSec = rawSeconds % 60;
-    inform("Playback Stopped. Total playing time %02d:%02d:%02d.", elapsedHours, elapsedMin,
-           elapsedSec);
+    if (conn->frame_rate_status == 0)
+      inform("Playback Stopped. Total playing time %02d:%02d:%02d at %0.2f frames per second.", elapsedHours, elapsedMin,
+           elapsedSec,conn->frame_rate);
+    else
+      inform("Playback Stopped. Total playing time %02d:%02d:%02d.", elapsedHours, elapsedMin,
+           elapsedSec);    
   }
 
 #ifdef HAVE_DACP_CLIENT
@@ -1594,6 +1598,9 @@ void *player_thread_func(void *arg) {
   int32_t maximum_buffer_occupancy = INT32_MIN;
 
   conn->playstart = time(NULL);
+  
+  conn->frame_rate = 0.0;
+  conn->frame_rate_status = -1; // zero means okay
 
   conn->buffer_occupancy = 0;
 
@@ -1716,7 +1723,8 @@ void *player_thread_func(void *arg) {
                "resend requests, "
                "min DAC queue size, "
                "min buffer occupancy, "
-               "max buffer occupancy");
+               "max buffer occupancy, "
+               "frames per second");
       } else {
         inform("sync error in milliseconds, "
                "total packets, "
@@ -2289,6 +2297,16 @@ void *player_thread_func(void *arg) {
             if (at_least_one_frame_seen) {
               if ((config.output->delay)) {
                 if (config.no_sync == 0) {
+                  if (config.output->rate_info) {
+                    uint64_t elapsed_play_time, frames_played;
+                    conn->frame_rate_status = config.output->rate_info(&elapsed_play_time,&frames_played);
+                    if (conn->frame_rate_status==0) {
+                      uint64_t elapsed_play_time_microseconds_fp, elapsed_play_time_microseconds;
+                      elapsed_play_time_microseconds_fp = elapsed_play_time * 1000000;
+                      elapsed_play_time_microseconds = elapsed_play_time_microseconds_fp >> 32;
+                      conn->frame_rate = frames_played*1000000.0/elapsed_play_time_microseconds;
+                    }
+                  }
                   inform(
                       "%*.1f," /* Sync error in milliseconds */
                       "%*.1f,"  /* net correction in ppm */
@@ -2300,14 +2318,15 @@ void *player_thread_func(void *arg) {
                       "%*llu,"  /* resend requests */
                       "%*lli,"  /* min DAC queue size */
                       "%*d,"    /* min buffer occupancy */
-                      "%*d",    /* max buffer occupancy */
+                      "%*d,"    /* max buffer occupancy */
+                      "%*.2f",    /* frame rate */
                       10, 1000 * moving_average_sync_error / config.output_rate, 10,
                       moving_average_correction * 1000000 / (352 * conn->output_sample_ratio), 10,
                       moving_average_insertions_plus_deletions * 1000000 /
                           (352 * conn->output_sample_ratio),
                       12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
                       conn->too_late_packets, 7, conn->resend_requests, 7, minimum_dac_queue_size,
-                      5, minimum_buffer_occupancy, 5, maximum_buffer_occupancy);
+                      5, minimum_buffer_occupancy, 5, maximum_buffer_occupancy, 10, conn->frame_rate);
                 } else {
                   inform("%*.1f," /* Sync error in milliseconds */
                          "%*d,"    /* total packets */

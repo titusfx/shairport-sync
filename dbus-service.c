@@ -746,7 +746,6 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 static void on_dbus_name_lost_again(__attribute__((unused)) GDBusConnection *connection,
                                     __attribute__((unused)) const gchar *name,
                                     __attribute__((unused)) gpointer user_data) {
-  debug(1, "Name lost again.");
   warn("Could not acquire a Shairport Sync native D-Bus interface \"%s\" on the %s bus.", name,
        (config.dbus_service_bus_type == DBT_session) ? "session" : "system");
 }
@@ -754,7 +753,6 @@ static void on_dbus_name_lost_again(__attribute__((unused)) GDBusConnection *con
 static void on_dbus_name_lost(__attribute__((unused)) GDBusConnection *connection,
                               __attribute__((unused)) const gchar *name,
                               __attribute__((unused)) gpointer user_data) {
-  debug(1, "Name lost.");
   // debug(1, "Could not acquire a Shairport Sync native D-Bus interface \"%s\" on the %s bus --
   // will try adding the process "
   //         "number to the end of it.",

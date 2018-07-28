@@ -35,6 +35,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 static void help(void);
 static int init(int argc, char **argv);
@@ -45,6 +46,7 @@ static void stop(void);
 static void flush(void);
 int delay(long *the_delay);
 void do_mute(int request);
+int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played);
 
 static void volume(double vol);
 void do_volume(double vol);
@@ -64,6 +66,7 @@ audio_output audio_alsa = {
     .flush = &flush,
     .delay = &delay,
     .play = &play,
+    .rate_info = &get_rate_information,
     .mute = NULL,   // a function will be provided if it can, and is allowed to, do hardware mute
     .volume = NULL, // a function will be provided if it can do hardware volume
     .parameters = &parameters};
@@ -109,6 +112,9 @@ int alsa_characteristics_already_listed = 0;
 
 static snd_pcm_uframes_t period_size_requested, buffer_size_requested;
 static int set_period_size_request, set_buffer_size_request;
+
+static uint64_t time_of_first_frame;
+static uint64_t frames_sent_for_playing;
 
 static void help(void) {
   printf("    -d output-device    set the output device [default*|...]\n"
@@ -810,6 +816,9 @@ static void start(int i_sample_rate, int i_sample_format) {
     sample_format = SPS_FORMAT_S16; // default
   else
     sample_format = i_sample_format;
+  
+  time_of_first_frame = 0;
+  frames_sent_for_playing = 0;
 }
 
 int delay(long *the_delay) {
@@ -829,20 +838,23 @@ int delay(long *the_delay) {
               snd_strerror(reply), *the_delay);
         snd_pcm_recover(alsa_handle, reply, 1);
       }
-    } else if (snd_pcm_state(alsa_handle) == SND_PCM_STATE_PREPARED) {
-      *the_delay = 0;
-      reply = 0; // no error
     } else {
-      if (snd_pcm_state(alsa_handle) == SND_PCM_STATE_XRUN) {
+      time_of_first_frame = 0;
+      if (snd_pcm_state(alsa_handle) == SND_PCM_STATE_PREPARED) {
         *the_delay = 0;
         reply = 0; // no error
       } else {
-        reply = -EIO;
-        debug(1, "Error -- ALSA delay(): bad state: %d.", snd_pcm_state(alsa_handle));
-      }
-      if ((derr = snd_pcm_prepare(alsa_handle))) {
-        snd_pcm_recover(alsa_handle, derr, 1);
-        debug(1, "Error preparing after delay error: \"%s\".", snd_strerror(derr));
+        if (snd_pcm_state(alsa_handle) == SND_PCM_STATE_XRUN) {
+          *the_delay = 0;
+          reply = 0; // no error
+        } else {
+          reply = -EIO;
+          debug(1, "Error -- ALSA delay(): bad state: %d.", snd_pcm_state(alsa_handle));
+        }
+        if ((derr = snd_pcm_prepare(alsa_handle))) {
+          snd_pcm_recover(alsa_handle, derr, 1);
+          debug(1, "Error preparing after delay error: \"%s\".", snd_strerror(derr));
+        }
       }
     }
     debug_mutex_unlock(&alsa_mutex, 3);
@@ -851,6 +863,16 @@ int delay(long *the_delay) {
     //	reply = -EPERM; // pretend something bad has happened
     return reply;
   }
+}
+
+int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
+  long frames_left = 0;
+  int result = delay(&frames_left);
+  if (result >= 0) {
+    *elapsed_time = get_absolute_time_in_fp()-time_of_first_frame;
+    *frames_played = frames_sent_for_playing - frames_left;
+  }
+  return result;
 }
 
 static void play(void *buf, int samples) {
@@ -876,6 +898,7 @@ static void play(void *buf, int samples) {
         snd_pcm_recover(alsa_handle, err, 1);
         debug(1, "Error preparing after underrun: \"%s\".", snd_strerror(err));
       }
+      time_of_first_frame = 0;
     }
     if ((snd_pcm_state(alsa_handle) == SND_PCM_STATE_PREPARED) ||
         (snd_pcm_state(alsa_handle) == SND_PCM_STATE_RUNNING)) {
@@ -885,11 +908,16 @@ static void play(void *buf, int samples) {
         debug(1, "empty buffer being passed to pcm_writei -- skipping it");
       if ((samples != 0) && (buf != NULL)) {
         err = alsa_pcm_write(alsa_handle, buf, samples);
+        if (time_of_first_frame == 0) {
+          time_of_first_frame = get_absolute_time_in_fp();
+          frames_sent_for_playing = 0;
+        }       
         if (err < 0) {
           debug(1, "Error %d writing %d samples in play(): \"%s\".", err, samples,
                 snd_strerror(err));
           snd_pcm_recover(alsa_handle, err, 1);
         }
+        frames_sent_for_playing += samples;
       }
     } else {
       debug(1, "Error -- ALSA device in incorrect state (%d) for play.",
@@ -898,6 +926,7 @@ static void play(void *buf, int samples) {
         snd_pcm_recover(alsa_handle, err, 1);
         debug(1, "Error preparing after play error: \"%s\".", snd_strerror(err));
       }
+      time_of_first_frame = 0;
     }
     debug_mutex_unlock(&alsa_mutex, 3);
   }
