@@ -113,8 +113,15 @@ int alsa_characteristics_already_listed = 0;
 static snd_pcm_uframes_t period_size_requested, buffer_size_requested;
 static int set_period_size_request, set_buffer_size_request;
 
-static uint64_t time_of_first_frame;
+static uint64_t measurement_start_time;
+static uint64_t frames_played_at_measurement_start_time;
+
+static uint64_t measurement_time;
+static uint64_t frames_played_at_measurement_time;
+
 static uint64_t frames_sent_for_playing;
+static uint64_t frame_index;
+static int measurement_data_is_valid;
 
 static void help(void) {
   printf("    -d output-device    set the output device [default*|...]\n"
@@ -817,8 +824,8 @@ static void start(int i_sample_rate, int i_sample_format) {
   else
     sample_format = i_sample_format;
   
-  time_of_first_frame = 0;
-  frames_sent_for_playing = 0;
+  frame_index = 0;
+  measurement_data_is_valid = 0;
 }
 
 int delay(long *the_delay) {
@@ -839,7 +846,9 @@ int delay(long *the_delay) {
         snd_pcm_recover(alsa_handle, reply, 1);
       }
     } else {
-      time_of_first_frame = 0;
+      frame_index = 0; //we'll be starting over...
+      measurement_data_is_valid = 0;
+
       if (snd_pcm_state(alsa_handle) == SND_PCM_STATE_PREPARED) {
         *the_delay = 0;
         reply = 0; // no error
@@ -866,13 +875,14 @@ int delay(long *the_delay) {
 }
 
 int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
-  long frames_left = 0;
-  int result = delay(&frames_left);
-  if (result >= 0) {
-    *elapsed_time = get_absolute_time_in_fp()-time_of_first_frame;
-    *frames_played = frames_sent_for_playing - frames_left;
+  if (measurement_data_is_valid) {
+    *elapsed_time = measurement_time - measurement_start_time;
+    *frames_played = frames_played_at_measurement_time - frames_played_at_measurement_start_time;
+  } else {
+    *elapsed_time = 0;
+    *frames_played = 0;  
   }
-  return result;
+  return 0;
 }
 
 static void play(void *buf, int samples) {
@@ -892,13 +902,14 @@ static void play(void *buf, int samples) {
   if (ret == 0) {
     debug_mutex_lock(&alsa_mutex, 10000, 1);
     //    snd_pcm_sframes_t current_delay = 0;
-    int err;
+    int err, err2;
     if (snd_pcm_state(alsa_handle) == SND_PCM_STATE_XRUN) {
       if ((err = snd_pcm_prepare(alsa_handle))) {
         snd_pcm_recover(alsa_handle, err, 1);
         debug(1, "Error preparing after underrun: \"%s\".", snd_strerror(err));
       }
-      time_of_first_frame = 0;
+      frame_index = 0; // we'll be starting over
+      measurement_data_is_valid = 0;
     }
     if ((snd_pcm_state(alsa_handle) == SND_PCM_STATE_PREPARED) ||
         (snd_pcm_state(alsa_handle) == SND_PCM_STATE_RUNNING)) {
@@ -908,16 +919,41 @@ static void play(void *buf, int samples) {
         debug(1, "empty buffer being passed to pcm_writei -- skipping it");
       if ((samples != 0) && (buf != NULL)) {
         err = alsa_pcm_write(alsa_handle, buf, samples);
-        if (time_of_first_frame == 0) {
-          time_of_first_frame = get_absolute_time_in_fp();
-          frames_sent_for_playing = 0;
-        }       
         if (err < 0) {
+          frame_index = 0;
+          measurement_data_is_valid = 0;
           debug(1, "Error %d writing %d samples in play(): \"%s\".", err, samples,
                 snd_strerror(err));
           snd_pcm_recover(alsa_handle, err, 1);
         }
-        frames_sent_for_playing += samples;
+        if (frame_index==0) {
+          frames_sent_for_playing = samples;
+        } else {
+          frames_sent_for_playing += samples;
+        }
+        const uint64_t start_measurement_from_this_frame = (2*44100)/352; // two seconds of frames…
+        frame_index++;
+        if ((frame_index == start_measurement_from_this_frame) || (frame_index % 32 == 0)) {
+          long fl = 0;
+          err2 = snd_pcm_delay(alsa_handle,&fl);
+          if (err2 != 0) {
+            frame_index = 0;
+            measurement_data_is_valid = 0;
+            debug(1, "Error %d in delay(): \"%s\". Delay reported is %d frames.", err2,
+                  snd_strerror(err2), fl);
+            snd_pcm_recover(alsa_handle, err2, 1);
+          }
+          uint64_t tf = get_absolute_time_in_fp();
+          frames_played_at_measurement_time = frames_sent_for_playing - fl;
+          if (frame_index == start_measurement_from_this_frame) {
+            frames_played_at_measurement_start_time = frames_played_at_measurement_time;
+            measurement_start_time = tf;
+          } else {
+            frames_played_at_measurement_time = frames_played_at_measurement_time;
+            measurement_time = tf;
+            measurement_data_is_valid = 1;
+          }
+        }
       }
     } else {
       debug(1, "Error -- ALSA device in incorrect state (%d) for play.",
@@ -926,7 +962,8 @@ static void play(void *buf, int samples) {
         snd_pcm_recover(alsa_handle, err, 1);
         debug(1, "Error preparing after play error: \"%s\".", snd_strerror(err));
       }
-      time_of_first_frame = 0;
+      frame_index = 0;
+      measurement_data_is_valid = 0;
     }
     debug_mutex_unlock(&alsa_mutex, 3);
   }
@@ -949,7 +986,8 @@ static void flush(void) {
     // flush also closes the device
     if ((derr = snd_pcm_close(alsa_handle)))
       debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));
-    time_of_first_frame = 0;
+    frame_index = 0;
+    measurement_data_is_valid = 0;
     alsa_handle = NULL;
   }
   debug_mutex_unlock(&alsa_mutex, 3);
