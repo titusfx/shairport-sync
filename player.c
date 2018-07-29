@@ -2301,10 +2301,7 @@ void *player_thread_func(void *arg) {
                     uint64_t elapsed_play_time, frames_played;
                     conn->frame_rate_status = config.output->rate_info(&elapsed_play_time,&frames_played);
                     if (conn->frame_rate_status==0) {
-                      uint64_t elapsed_play_time_microseconds_fp, elapsed_play_time_microseconds;
-                      elapsed_play_time_microseconds_fp = elapsed_play_time * 1000000;
-                      elapsed_play_time_microseconds = elapsed_play_time_microseconds_fp >> 32;
-                      conn->frame_rate = frames_played*1000000.0/elapsed_play_time_microseconds;
+                      conn->frame_rate = 1.0*(frames_played*(uint64_t)0x100000000)/elapsed_play_time;
                     }
                   }
                   inform(

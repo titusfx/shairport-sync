@@ -910,8 +910,7 @@ static void play(void *buf, int samples) {
       }
       frame_index = 0; // we'll be starting over
       measurement_data_is_valid = 0;
-    }
-    if ((snd_pcm_state(alsa_handle) == SND_PCM_STATE_PREPARED) ||
+    } else if ((snd_pcm_state(alsa_handle) == SND_PCM_STATE_PREPARED) ||
         (snd_pcm_state(alsa_handle) == SND_PCM_STATE_RUNNING)) {
       if (buf == NULL)
         debug(1, "NULL buffer passed to pcm_writei -- skipping it");
