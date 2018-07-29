@@ -2052,12 +2052,14 @@ void *player_thread_func(void *arg) {
                   silence_length = filler_length * 5;
 
                 char *long_silence = malloc(conn->output_bytes_per_frame * silence_length);
-                if (long_silence == NULL)
-                  die("Failed to allocate memory for a long_silence buffer of %d frames.",
-                      silence_length);
-                memset(long_silence, 0, conn->output_bytes_per_frame * silence_length);
-                config.output->play(long_silence, silence_length);
-                free(long_silence);
+                if (long_silence) {
+                  memset(long_silence, 0, conn->output_bytes_per_frame * silence_length);
+                  config.output->play(long_silence, silence_length);
+                  free(long_silence);
+                } else {
+                  warn("Failed to allocate memory for a long_silence buffer of %d frames for a sync error of %" PRId64 " frames.",
+                      silence_length, sync_error);                
+                }
               }
             } else {
 
