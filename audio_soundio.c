@@ -168,7 +168,7 @@ static void start(int sample_rate, int sample_format) {
   debug(1, "libsoundio output started\n");
 }
 
-static void play(void *buf, int samples) {
+static int play(void *buf, int samples) {
   // int err;
   int free_bytes = soundio_ring_buffer_free_count(ring_buffer);
   int written_bytes = 0;
@@ -187,6 +187,7 @@ static void play(void *buf, int samples) {
     soundio_ring_buffer_advance_write_ptr(ring_buffer, write_bytes);
     debug(3, "[<<---] Written to buffer : %d\n", written_bytes);
   }
+  return 0;
 }
 
 static void parameters(audio_parameters *info) {

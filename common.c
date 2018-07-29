@@ -1141,6 +1141,10 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *filename, const int 
   return r;
 }
 
+void pthread_cleanup_debug_mutex_unlock(void *arg) {
+  pthread_mutex_unlock((pthread_mutex_t* )arg);
+}
+
 char *get_version_string() {
   char *version_string = malloc(200);
   if (version_string) {

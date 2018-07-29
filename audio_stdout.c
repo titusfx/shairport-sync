@@ -43,7 +43,7 @@ static void start(__attribute__((unused)) int sample_rate,
   fd = STDOUT_FILENO;
 }
 
-static void play(void *buf, int samples) {
+static int play(void *buf, int samples) {
   char errorstring[1024];
   int warned = 0;
   int rc = write(fd, buf, samples * 4);
@@ -52,6 +52,7 @@ static void play(void *buf, int samples) {
     warn("Error %d writing to stdout: \"%s\".", errno, errorstring);
     warned = 1;
   }
+  return rc;
 }
 
 static void stop(void) {
