@@ -949,7 +949,7 @@ static void flush(void) {
     // flush also closes the device
     if ((derr = snd_pcm_close(alsa_handle)))
       debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));
-
+    time_of_first_frame = 0;
     alsa_handle = NULL;
   }
   debug_mutex_unlock(&alsa_mutex, 3);
