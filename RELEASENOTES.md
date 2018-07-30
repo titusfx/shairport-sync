@@ -4,7 +4,7 @@ Internal changes are being made for version 3.3 to avoid using `SIGUSR1` and `pt
 
 **New Features**
 * Add the command `quit` to the MPRIS and the D-Bus interfaces. The main motivation for this is that it makes it easier to search for memory leaks.
-* Log the output rate, in frames per second, in the `statistics` output, for the entire play session up to that time. The rate is timed relative to `CLOCK_MONOTONIC`. When your system is connected for an appreciable period to network time, e.g. using an NTP client, `CLOCK_MONOTONIC` is adjusted ("conditioned") to keep time extremely accurately. This means that the output rate figure should be very accurate, especially over a long play session, say a couple of hours.
+* Log the output rate, in frames per second, in the `statistics` output, for the entire play session since that last pause/resume, if any. The rate is timed relative to `CLOCK_MONOTONIC`. When your system is connected for an appreciable period to network time, e.g. using an NTP client, `CLOCK_MONOTONIC` is adjusted ("conditioned") to keep time extremely accurately. This means that the output rate figure should be very accurate, especially over a long play session, say a couple of hours.
 
 **Bug Fixes**
 * A number of memory leaks have been identified and removed.
