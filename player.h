@@ -91,10 +91,22 @@ typedef struct {
   int32_t *sbuf;
   char *outbuf;
 
-  // for holding the rate information until printed out at the end of a session
+  // for holding the output rate information until printed out at the end of a session
   double frame_rate;
   int frame_rate_status;
 
+  // for holding input rate information until printed out at the end of a session
+
+  double input_frame_rate;
+  int input_frame_rate_status;
+
+  uint64_t frames_inward_measurement_start_time;
+  uint64_t frames_inward_frames_received_at_measurement_start_time;
+
+  uint64_t frames_inward_measurement_time;
+  uint64_t frames_inward_frames_received_at_measurement_time;
+
+  // other stuff...
   pthread_t *player_thread;
   abuf_t audio_buffer[BUFFER_FRAMES];
   int max_frames_per_packet, input_num_channels, input_bit_depth, input_rate;
