@@ -94,12 +94,12 @@ typedef struct {
   // for holding the output rate information until printed out at the end of a session
   double frame_rate;
   int frame_rate_status;
-
+  
   // for holding input rate information until printed out at the end of a session
-
+  
   double input_frame_rate;
   int input_frame_rate_status;
-
+  
   uint64_t frames_inward_measurement_start_time;
   uint64_t frames_inward_frames_received_at_measurement_start_time;
 
@@ -115,6 +115,7 @@ typedef struct {
   int64_t previous_random_number;
   alac_file *decoder_info;
   uint64_t packet_count;
+  uint64_t packet_count_since_flush;
   int connection_state_to_output;
   uint64_t first_packet_time_to_play;
   int64_t time_since_play_started; // nanoseconds

@@ -483,6 +483,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, int64_t timestamp
 
   debug_mutex_lock(&conn->ab_mutex, 30000, 1);
   conn->packet_count++;
+  conn->packet_count_since_flush++;
   conn->time_of_last_audio_packet = get_absolute_time_in_fp();
   if (conn->connection_state_to_output) { // if we are supposed to be processing these packets
 
@@ -494,6 +495,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, int64_t timestamp
             "Dropping flushed packet in player_put_packet, seqno %u, timestamp %lld, flushing to "
             "timestamp: %lld.",
             seqno, ltimestamp, conn->flush_rtp_timestamp);
+      
     } else {
       if ((conn->flush_rtp_timestamp != 0x0) &&
           (ltimestamp > conn->flush_rtp_timestamp)) // if we have gone past the flush boundary time
@@ -524,17 +526,17 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, int64_t timestamp
 
       if (conn->ab_write == seqno) { // expected packet
         uint64_t reception_time = get_absolute_time_in_fp();
-
-        if ((conn->packet_count >= 145) && (conn->packet_count <= 155)) {
+        
+        if ((conn->packet_count_since_flush>=145) && (conn->packet_count_since_flush<=155)) {
           conn->frames_inward_measurement_start_time = reception_time;
           conn->frames_inward_frames_received_at_measurement_start_time = timestamp;
           conn->input_frame_rate_status = 1; // valid now
-          debug(1, "frames_inward_measurement_start_time set");
+          debug(1,"frames_inward_measurement_start_time set");
         }
 
         conn->frames_inward_measurement_time = reception_time;
         conn->frames_inward_frames_received_at_measurement_time = timestamp;
-
+                
         abuf = conn->audio_buffer + BUFIDX(seqno);
         conn->ab_write = SUCCESSOR(seqno);
       } else if (seq_order(conn->ab_write, seqno, conn->ab_read)) { // newer than expected
@@ -1444,12 +1446,11 @@ void player_thread_cleanup_handler(void *arg) {
     int elapsedMin = (rawSeconds / 60) % 60;
     int elapsedSec = rawSeconds % 60;
     if (conn->frame_rate_status == 0)
-      inform("Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f, output: %0.2f "
-             "frames per second.",
+      inform("Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f, output: %0.2f frames per second.",
              elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate, conn->frame_rate);
     else
-      inform("Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f frames per second.",
-             elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate);
+      inform("Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f frames per second.", elapsedHours, elapsedMin,
+             elapsedSec, conn->input_frame_rate);
   }
 
 #ifdef HAVE_DACP_CLIENT
@@ -1510,6 +1511,7 @@ void *player_thread_func(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 
   conn->packet_count = 0;
+  conn->packet_count_since_flush = 0;
   conn->previous_random_number = 0;
   conn->input_bytes_per_frame = 4;
   conn->decoder_in_use = 0;
@@ -2309,16 +2311,13 @@ void *player_thread_func(void *arg) {
             if (at_least_one_frame_seen) {
               if (conn->input_frame_rate_status == 1) {
                 uint64_t elapsed_reception_time, frames_received;
-                elapsed_reception_time = conn->frames_inward_measurement_time -
-                                         conn->frames_inward_measurement_start_time;
-                frames_received = conn->frames_inward_frames_received_at_measurement_time -
-                                  conn->frames_inward_frames_received_at_measurement_start_time;
-                conn->input_frame_rate =
-                    1.0 * (frames_received * (uint64_t)0x100000000) / elapsed_reception_time;
+                elapsed_reception_time = conn->frames_inward_measurement_time - conn->frames_inward_measurement_start_time;
+                frames_received = conn->frames_inward_frames_received_at_measurement_time - conn->frames_inward_frames_received_at_measurement_start_time;
+                conn->input_frame_rate = 1.0 * (frames_received * (uint64_t)0x100000000) / elapsed_reception_time;
               } else {
                 conn->input_frame_rate = 0.0;
               }
-
+            
               if ((config.output->delay)) {
                 if (config.no_sync == 0) {
                   if (config.output->rate_info) {
@@ -2329,7 +2328,7 @@ void *player_thread_func(void *arg) {
                       conn->frame_rate =
                           1.0 * (frames_played * (uint64_t)0x100000000) / elapsed_play_time;
                     }
-                  }
+                  }                  
                   inform("%*.1f," /* Sync error in milliseconds */
                          "%*.1f," /* net correction in ppm */
                          "%*.1f," /* corrections in ppm */
@@ -2351,8 +2350,7 @@ void *player_thread_func(void *arg) {
                          12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
                          conn->too_late_packets, 7, conn->resend_requests, 7,
                          minimum_dac_queue_size, 5, minimum_buffer_occupancy, 5,
-                         maximum_buffer_occupancy, 11, conn->input_frame_rate, 11,
-                         conn->frame_rate);
+                         maximum_buffer_occupancy, 11, conn->input_frame_rate, 11, conn->frame_rate);
                 } else {
                   inform("%*.1f," /* Sync error in milliseconds */
                          "%*d,"   /* total packets */
@@ -2368,8 +2366,7 @@ void *player_thread_func(void *arg) {
                          1000 * moving_average_sync_error / config.output_rate, 12, play_number, 7,
                          conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets, 7,
                          conn->resend_requests, 7, minimum_dac_queue_size, 5,
-                         minimum_buffer_occupancy, 5, maximum_buffer_occupancy, 11,
-                         conn->input_frame_rate);
+                         minimum_buffer_occupancy, 5, maximum_buffer_occupancy, 11, conn->input_frame_rate);
                 }
               } else {
                 inform("%*.1f," /* Sync error in milliseconds */
@@ -2651,6 +2648,7 @@ void do_flush(int64_t timestamp, rtsp_conn_info *conn) {
   conn->flush_rtp_timestamp = timestamp; // flush all packets up to (and including?) this
   conn->play_segment_reference_frame = 0;
   conn->play_number_after_flush = 0;
+  conn->packet_count_since_flush = 0;
   debug_mutex_unlock(&conn->flush_mutex, 3);
 
 #ifdef CONFIG_METADATA
