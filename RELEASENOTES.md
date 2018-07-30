@@ -1,10 +1,21 @@
+Version 3.3d0
+====
+Internal changes are being made for version 3.3 to avoid using `SIGUSR1` and `pthread_kill` to stop threads; the standard `pthread_cancel` and friends are being used instead. This should lead to more reliable and orderly cancellatioon of sessions and threads. However, it is quite a complex change, so bugs may have been introduced or reactivated. Lots of testing needed.
+
+**New Features**
+* Add the command `quit` to the MPRIS and the D-Bus interfaces. The main motivation for this is that it makes it easier to search for memory leaks.
+* Log the output rate, in frames per second, in the `statistics` output, for the entire play session up to that time. The rate is timed relative to `CLOCK_MONOTONIC`. When your system is connected for an appreciable period to network time, e.g. using an NTP client, `CLOCK_MONOTONIC` is adjusted ("conditioned") to keep time extremely accurately. This means that the output rate figure should be very accurate, especially over a long play session, say a couple of hours.
+
+**Bug Fixes**
+* A number of memory leaks have been identified and removed.
+* A bogus warning about using the deprecated `general` `statistics` options has been fixed.
+
 Version 3.2d67
 ====
 This is equivalent to 3.2.1.
 
 **Bug Fix**
 * Fix a bug causing a crash when `soxr` interpolation was enabled and a play session was stopped. This bug overwrote incorrect memory locations, so depending on what it overwrote, may have been responsible for other inexplicable crashes. Thanks are due to [hanaguro](https://github.com/hanaguro), [FnasBas](https://github.com/FnasBas), [priitohlo](https://github.com/priitohlo), [David Krmpotić](https://github.com/davidhq) and [artenverho](https://github.com/artenverho).
-
 
 Version 3.2.d66
 ====
