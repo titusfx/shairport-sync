@@ -464,7 +464,7 @@ int parse_options(int argc, char **argv) {
       }
 
       /* Get the statistics setting. */
-      if (!config_set_lookup_bool(config.cfg, "general.statistics",
+      if (config_set_lookup_bool(config.cfg, "general.statistics",
                                   &(config.statistics_requested))) {
         warn("The \"general\" \"statistics\" setting is deprecated. Please use the \"diagnostics\" "
              "\"statistics\" setting instead.");
