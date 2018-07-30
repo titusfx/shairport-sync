@@ -19,6 +19,8 @@ ShairportSyncDiagnostics *shairportSyncDiagnosticsSkeleton = NULL;
 ShairportSyncRemoteControl *shairportSyncRemoteControlSkeleton = NULL;
 ShairportSyncAdvancedRemoteControl *shairportSyncAdvancedRemoteControlSkeleton = NULL;
 
+guint ownerID = 0;
+
 void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused)) void *userdata) {
   char response[100];
   const char *th;
@@ -43,16 +45,15 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
     shairport_sync_advanced_remote_control_set_available(shairportSyncAdvancedRemoteControlSkeleton,
                                                          FALSE);
   }
-  
+
   if (argc->progress_string) {
-  	// debug(1, "Check progress string");
-		th = shairport_sync_remote_control_get_progress_string(
-				shairportSyncRemoteControlSkeleton);
-		if ((th == NULL) || (strcasecmp(th, argc->progress_string) != 0)) {
-			// debug(1, "Progress string should be changed");
-			shairport_sync_remote_control_set_progress_string(
-					shairportSyncRemoteControlSkeleton, argc->progress_string);
-		}  	
+    // debug(1, "Check progress string");
+    th = shairport_sync_remote_control_get_progress_string(shairportSyncRemoteControlSkeleton);
+    if ((th == NULL) || (strcasecmp(th, argc->progress_string) != 0)) {
+      // debug(1, "Progress string should be changed");
+      shairport_sync_remote_control_set_progress_string(shairportSyncRemoteControlSkeleton,
+                                                        argc->progress_string);
+    }
   }
 
   switch (argc->player_state) {
@@ -162,7 +163,8 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
   if ((argc->track_metadata) && (argc->track_metadata->item_id)) {
     char trackidstring[128];
     // debug(1, "Set ID using mper ID: \"%u\".",argc->item_id);
-    snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/mper_%u", argc->track_metadata->item_id);
+    snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/mper_%u",
+             argc->track_metadata->item_id);
     GVariant *trackid = g_variant_new("o", trackidstring);
     g_variant_builder_add(dict_builder, "{sv}", "mpris:trackid", trackid);
   }
@@ -544,6 +546,18 @@ gboolean notify_loop_status_callback(ShairportSyncAdvancedRemoteControl *skeleto
   return TRUE;
 }
 
+static gboolean on_handle_quit(ShairportSync *skeleton, GDBusMethodInvocation *invocation,
+                               __attribute__((unused)) const gchar *command,
+                               __attribute__((unused)) gpointer user_data) {
+  debug(1, "quit requested (native interface)");
+  if (main_thread_id)
+    debug(1, "Cancelling main thread results in %d.", pthread_cancel(main_thread_id));
+  else
+    debug(1, "Main thread ID is NULL.");
+  shairport_sync_complete_quit(skeleton, invocation);
+  return TRUE;
+}
+
 static gboolean on_handle_remote_command(ShairportSync *skeleton, GDBusMethodInvocation *invocation,
                                          const gchar *command,
                                          __attribute__((unused)) gpointer user_data) {
@@ -588,6 +602,8 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(notify_loudness_filter_active_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::loudness-threshold",
                    G_CALLBACK(notify_loudness_threshold_callback), NULL);
+
+  g_signal_connect(shairportSyncSkeleton, "handle-quit", G_CALLBACK(on_handle_quit), NULL);
 
   g_signal_connect(shairportSyncSkeleton, "handle-remote-command",
                    G_CALLBACK(on_handle_remote_command), NULL);
@@ -760,7 +776,15 @@ int start_dbus_service() {
     dbus_bus_type = G_BUS_TYPE_SESSION;
   // debug(1, "Looking for a Shairport Sync native D-Bus interface \"org.gnome.ShairportSync\" on
   // the %s bus.",(config.dbus_service_bus_type == DBT_session) ? "session" : "system");
-  g_bus_own_name(dbus_bus_type, "org.gnome.ShairportSync", G_BUS_NAME_OWNER_FLAGS_NONE, NULL,
-                 on_dbus_name_acquired, on_dbus_name_lost, NULL, NULL);
+  ownerID = g_bus_own_name(dbus_bus_type, "org.gnome.ShairportSync", G_BUS_NAME_OWNER_FLAGS_NONE,
+                           NULL, on_dbus_name_acquired, on_dbus_name_lost, NULL, NULL);
   return 0; // this is just to quieten a compiler warning
+}
+
+void stop_dbus_service() {
+  debug(1, "stopping dbus service");
+  if (ownerID)
+    g_bus_unown_name(ownerID);
+  else
+    debug(1, "Zero OwnerID for \"org.gnome.ShairportSync\".");
 }

@@ -76,17 +76,26 @@ typedef struct {
                            // otherwise
 
   int fd;
-  int authorized; // set if a password is required and has been supplied
+  int authorized;   // set if a password is required and has been supplied
+  char *auth_nonce; // the session nonce, if needed
   stream_cfg stream;
   SOCKADDR remote, local;
   int stop;
   int running;
-  pthread_t thread, timer_requester;
-
+  time_t playstart;
+  pthread_t thread, timer_requester, rtp_audio_thread, rtp_control_thread, rtp_timing_thread;
   // pthread_t *ptp;
-  pthread_t *player_thread;
-  pthread_rwlock_t player_thread_lock; // used to control access by "outsiders"
 
+  // buffers to delete on exit
+  signed short *tbuf;
+  int32_t *sbuf;
+  char *outbuf;
+
+  // for holding the rate information until printed out at the end of a session
+  double frame_rate;
+  int frame_rate_status;
+
+  pthread_t *player_thread;
   abuf_t audio_buffer[BUFFER_FRAMES];
   int max_frames_per_packet, input_num_channels, input_bit_depth, input_rate;
   int input_bytes_per_frame, output_bytes_per_frame, output_sample_ratio;
@@ -95,7 +104,6 @@ typedef struct {
   alac_file *decoder_info;
   uint64_t packet_count;
   int connection_state_to_output;
-  int player_thread_please_stop;
   uint64_t first_packet_time_to_play;
   int64_t time_since_play_started; // nanoseconds
                                    // stats

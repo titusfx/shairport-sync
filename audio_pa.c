@@ -198,7 +198,7 @@ static void start(__attribute__((unused)) int sample_rate,
   pa_threaded_mainloop_unlock(mainloop);
 }
 
-static void play(void *buf, int samples) {
+static int play(void *buf, int samples) {
   // debug(1,"pa_play of %d samples.",samples);
   // copy the samples into the queue
   size_t bytes_to_transfer = samples * 2 * 2;
@@ -224,6 +224,7 @@ static void play(void *buf, int samples) {
     pa_stream_cork(stream, 0, stream_success_cb, mainloop);
     pa_threaded_mainloop_unlock(mainloop);
   }
+  return 0;
 }
 
 int pa_delay(long *the_delay) {

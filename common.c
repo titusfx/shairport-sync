@@ -120,7 +120,6 @@ void die(const char *format, ...) {
     daemon_log(LOG_EMERG, "% 20.9f|*fatal error: %s", tss, s);
   else
     daemon_log(LOG_EMERG, "fatal error: %s", s);
-  shairport_shutdown();
   exit(1);
 }
 
@@ -178,11 +177,26 @@ void debug(int level, const char *format, ...) {
 void inform(const char *format, ...) {
   char s[1024];
   s[0] = 0;
+  uint64_t time_now = get_absolute_time_in_fp();
+  uint64_t time_since_start = time_now - fp_time_at_startup;
+  uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
+  fp_time_at_last_debug_message = time_now;
+  uint64_t divisor = (uint64_t)1 << 32;
+  double tss = 1.0 * time_since_start / divisor;
+  double tsl = 1.0 * time_since_last_debug_message / divisor;
   va_list args;
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
-  daemon_log(LOG_INFO, "%s", s);
+
+  if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
+    daemon_log(LOG_INFO, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
+  else if ((debuglev) && (config.debugger_show_relative_time))
+    daemon_log(LOG_INFO, "% 20.9f|%s", tsl, s);
+  else if ((debuglev) && (config.debugger_show_elapsed_time))
+    daemon_log(LOG_INFO, "% 20.9f|%s", tss, s);
+  else
+    daemon_log(LOG_INFO, "%s", s);
 }
 
 // The following two functions are adapted slightly and with thanks from Jonathan Leffler's sample
@@ -385,7 +399,8 @@ uint8_t *base64_dec(char *input, int *outlen) {
 
   nread = BIO_read(b64, buf, bufsize);
 
-  BIO_free_all(bmem);
+  // BIO_free_all(bmem);
+  BIO_free_all(b64);
 
   *outlen = nread;
   return buf;
@@ -419,8 +434,7 @@ static char super_secret_key[] =
 
 #ifdef HAVE_LIBSSL
 uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
-  static RSA *rsa = NULL;
-
+  RSA *rsa = NULL;
   if (!rsa) {
     BIO *bmem = BIO_new_mem_buf(super_secret_key, -1);
     rsa = PEM_read_bio_RSAPrivateKey(bmem, NULL, NULL, NULL);
@@ -732,19 +746,15 @@ double flat_vol2attn(double vol, long max_db, long min_db) {
 
 double vol2attn(double vol, long max_db, long min_db) {
 
-// We use a little coordinate geometry to build a transfer function from the volume passed in to the
-// device's dynamic range.
-// (See the diagram in the documents folder.)
-// The x axis is the "volume in" which will be from -30 to 0. The y axis will be the "volume out"
-// which will be from the bottom of the range to the top.
-// We build the transfer function from one or more lines. We characterise each line with two
-// numbers:
-// the first is where on x the line starts when y=0 (x can be from 0 to -30); the second is where on
-// y the line stops when when x is -30.
-// thus, if the line was characterised as {0,-30}, it would be an identity transfer.
-// Assuming, for example, a dynamic range of lv=-60 to hv=0
-// Typically we'll use three lines -- a three order transfer function
-// First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
+// We use a little coordinate geometry to build a transfer function from the volume passed in to
+// the device's dynamic range. (See the diagram in the documents folder.) The x axis is the
+// "volume in" which will be from -30 to 0. The y axis will be the "volume out" which will be from
+// the bottom of the range to the top. We build the transfer function from one or more lines. We
+// characterise each line with two numbers: the first is where on x the line starts when y=0 (x
+// can be from 0 to -30); the second is where on y the line stops when when x is -30. thus, if the
+// line was characterised as {0,-30}, it would be an identity transfer. Assuming, for example, a
+// dynamic range of lv=-60 to hv=0 Typically we'll use three lines -- a three order transfer
+// function First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
 // Second: {-5,-30-(lv+30)/2} giving a faster slope from y=0 at x=-12 to y=-42.5 at x=-30
 // Third: {-17,lv} giving a fast slope from y=0 at x=-19 to y=-60 at x=-30
 
@@ -950,8 +960,6 @@ int64_t r64i() { return (ranval(&rx) >> 1); }
 /* generate an array of 64-bit random numbers */
 const int ranarraylength = 1009; // these will be 8-byte numbers.
 
-uint64_t *ranarray;
-
 int ranarraynext;
 
 void ranarrayinit() {
@@ -1068,13 +1076,14 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
                                 const char *debugmessage, int debuglevel) {
 
+  // this is not pthread_cancellation safe because is contains a cancellation point
   useconds_t time_to_wait = dally_time;
   int r = pthread_mutex_trylock(mutex);
   while ((r == EBUSY) && (time_to_wait > 0)) {
     useconds_t st = time_to_wait;
     if (st > 1000)
       st = 1000;
-    sps_nanosleep(0, st * 1000);
+    sps_nanosleep(0, st * 1000); // this contains a cancellation point
     time_to_wait -= st;
     r = pthread_mutex_trylock(mutex);
   }
@@ -1096,6 +1105,8 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 
 int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *filename,
                       const int line, int debuglevel) {
+  if (debuglevel > debuglev)
+    return pthread_mutex_lock(mutex);
   uint64_t time_at_start = get_absolute_time_in_fp();
   char dstring[1000];
   memset(dstring, 0, sizeof(dstring));
@@ -1116,6 +1127,8 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
 
 int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *filename, const int line,
                         int debuglevel) {
+  if (debuglevel > debuglev)
+    return pthread_mutex_unlock(mutex);
   char dstring[1000];
   char errstr[512];
   memset(dstring, 0, sizeof(dstring));
@@ -1127,6 +1140,8 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *filename, const int 
           strerror_r(r, errstr, sizeof(errstr)), dstring);
   return r;
 }
+
+void pthread_cleanup_debug_mutex_unlock(void *arg) { pthread_mutex_unlock((pthread_mutex_t *)arg); }
 
 char *get_version_string() {
   char *version_string = malloc(200);

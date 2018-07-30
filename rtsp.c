@@ -101,8 +101,6 @@ static pthread_mutex_t reference_counter_lock = PTHREAD_MUTEX_INITIALIZER;
 // static int please_shutdown = 0;
 // static pthread_t playing_thread = 0;
 
-static rtsp_conn_info **conns = NULL;
-
 int RTSP_connection_index = 1;
 
 #ifdef CONFIG_METADATA
@@ -156,11 +154,24 @@ void pc_queue_init(pc_queue *the_queue, char *items, size_t item_size, uint32_t 
   the_queue->eoq = 0;
 }
 
+void pc_queue_delete(pc_queue *the_queue) {
+  pthread_cond_destroy(&the_queue->pc_queue_item_removed_signal);
+  pthread_cond_destroy(&the_queue->pc_queue_item_added_signal);
+  pthread_mutex_destroy(&the_queue->pc_queue_lock);
+}
+
 int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rtsp_message *carrier,
                   int block);
 
 int send_ssnc_metadata(uint32_t code, char *data, uint32_t length, int block) {
   return send_metadata('ssnc', code, data, length, NULL, block);
+}
+
+void pc_queue_cleanup_handler(void *arg) {
+  pc_queue *the_queue = (pc_queue *)arg;
+  int rc = pthread_mutex_unlock(&the_queue->pc_queue_lock);
+  if (rc)
+    debug(1, "Error unlocking for pc_queue_add_item or pc_queue_get_item.");
 }
 
 int pc_queue_add_item(pc_queue *the_queue, const void *the_stuff, int block) {
@@ -174,6 +185,7 @@ int pc_queue_add_item(pc_queue *the_queue, const void *the_stuff, int block) {
       rc = pthread_mutex_lock(&the_queue->pc_queue_lock);
     if (rc)
       debug(1, "Error locking for pc_queue_add_item");
+    pthread_cleanup_push(pc_queue_cleanup_handler, (void *)the_queue);
     while (the_queue->count == the_queue->capacity) {
       rc = pthread_cond_wait(&the_queue->pc_queue_item_removed_signal, &the_queue->pc_queue_lock);
       if (rc)
@@ -196,9 +208,7 @@ int pc_queue_add_item(pc_queue *the_queue, const void *the_stuff, int block) {
     rc = pthread_cond_signal(&the_queue->pc_queue_item_added_signal);
     if (rc)
       debug(1, "Error signalling after pc_queue_add_item");
-    rc = pthread_mutex_unlock(&the_queue->pc_queue_lock);
-    if (rc)
-      debug(1, "Error unlocking for pc_queue_add_item");
+    pthread_cleanup_pop(1); // unlock the queue lock.
   } else {
     debug(1, "Adding an item to a NULL queue");
   }
@@ -211,6 +221,7 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
     rc = pthread_mutex_lock(&the_queue->pc_queue_lock);
     if (rc)
       debug(1, "Error locking for pc_queue_get_item");
+    pthread_cleanup_push(pc_queue_cleanup_handler, (void *)the_queue);
     while (the_queue->count == 0) {
       rc = pthread_cond_wait(&the_queue->pc_queue_item_added_signal, &the_queue->pc_queue_lock);
       if (rc)
@@ -231,9 +242,7 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
     rc = pthread_cond_signal(&the_queue->pc_queue_item_removed_signal);
     if (rc)
       debug(1, "Error signalling after pc_queue_removed_item");
-    rc = pthread_mutex_unlock(&the_queue->pc_queue_lock);
-    if (rc)
-      debug(1, "Error unlocking for pc_queue_get_item");
+    pthread_cleanup_pop(1); // unlock the queue lock.
   } else {
     debug(1, "Removing an item from a NULL queue");
   }
@@ -258,6 +267,21 @@ static void track_thread(rtsp_conn_info *conn) {
     nconns++;
   } else {
     die("could not reallocate memnory for \"conns\" in rtsp.c.");
+  }
+}
+
+void cancel_all_RTSP_threads(void) {
+  int i;
+  for (i = 0; i < nconns; i++) {
+    debug(1, "Connection %d: cancelling.", conns[i]->connection_number);
+    pthread_cancel(conns[i]->thread);
+  }
+  for (i = 0; i < nconns; i++) {
+    debug(1, "Connection %d: joining.", conns[i]->connection_number);
+    pthread_join(conns[i]->thread, NULL);
+    if (conns[i] == playing_conn)
+      playing_conn = NULL;
+    free(conns[i]);
   }
 }
 
@@ -292,8 +316,11 @@ void ask_other_rtsp_conversation_threads_to_stop(pthread_t except_this_thread) {
   for (i = 0; i < nconns; i++) {
     if (((except_this_thread == 0) || (pthread_equal(conns[i]->thread, except_this_thread) == 0)) &&
         (conns[i]->running != 0)) {
-      conns[i]->stop = 1;
-      pthread_kill(conns[i]->thread, SIGUSR1);
+      pthread_cancel(conns[i]->thread);
+      pthread_join(conns[i]->thread, NULL);
+      debug(1, "Connection %d: asked to stop.", conns[i]->connection_number);
+      // conns[i]->stop = 1;
+      // pthread_kill(conns[i]->thread, SIGUSR1);
     }
   }
 }
@@ -893,9 +920,10 @@ static void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *r
 #ifdef CONFIG_METADATA
         if (!strncmp(cp, "progress: ", 10)) {
       char *progress = cp + 10;
-      // debug(2, "progress: \"%s\"\n",
-      //      progress); // rtpstampstart/rtpstampnow/rtpstampend 44100 per second
+      // debug(2, "progress: \"%s\"\n",progress); // rtpstampstart/rtpstampnow/rtpstampend 44100 per
+      // second
       send_ssnc_metadata('prgr', strdup(progress), strlen(progress), 1);
+
     } else
 #endif
     {
@@ -1046,9 +1074,9 @@ static char *metadata_sockmsg;
 #define metadata_queue_size 500
 metadata_package metadata_queue_items[metadata_queue_size];
 
-static pthread_t metadata_thread;
+pthread_t metadata_thread;
 
-void metadata_create(void) {
+void metadata_create_multicast_socket(void) {
   if (config.metadata_enabled == 0)
     return;
 
@@ -1070,7 +1098,7 @@ void metadata_create(void) {
       if (metadata_sockmsg) {
         memset(metadata_sockmsg, 0, config.metadata_sockmsglength);
       } else {
-        die("Could not malloc metadata socket buffer");
+        die("Could not malloc metadata multicast socket buffer");
       }
     }
   }
@@ -1087,6 +1115,15 @@ void metadata_create(void) {
 
   free(path);
   umask(oldumask);
+}
+
+void metadata_delete_multicast_socket(void) {
+  if (config.metadata_enabled == 0)
+    return;
+  shutdown(metadata_sock, SHUT_RDWR); // we want to immediately deallocate the buffer
+  close(metadata_sock);
+  if (metadata_sockmsg)
+    free(metadata_sockmsg);
 }
 
 void metadata_open(void) {
@@ -1106,12 +1143,12 @@ void metadata_open(void) {
   free(path);
 }
 
-/*
 static void metadata_close(void) {
+  if (fd < 0)
+    return;
   close(fd);
   fd = -1;
 }
-*/
 
 void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length) {
   // debug(2, "Process metadata with type %x, code %x and length %u.", type, code, length);
@@ -1233,11 +1270,32 @@ void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length)
   }
 }
 
+void metadata_thread_cleanup_function(__attribute__((unused)) void *arg) {
+  debug(1, "metadata_thread_cleanup_function called");
+  metadata_delete_multicast_socket();
+  metadata_close();
+  pc_queue_delete(&metadata_queue);
+}
+
+void metadata_pack_cleanup_function(void *arg) {
+  // debug(1, "metadata_pack_cleanup_function called");
+  metadata_package *pack = (metadata_package *)arg;
+  if (pack->carrier)
+    msg_free(pack->carrier); // release the message
+  else if (pack->data)
+    free(pack->data);
+}
+
 void *metadata_thread_function(__attribute__((unused)) void *ignore) {
-  metadata_create();
+  // create a pc_queue for passing information to a threaded metadata handler
+  pc_queue_init(&metadata_queue, (char *)&metadata_queue_items, sizeof(metadata_package),
+                metadata_queue_size);
+  metadata_create_multicast_socket();
   metadata_package pack;
+  pthread_cleanup_push(metadata_thread_cleanup_function, NULL);
   while (1) {
     pc_queue_get_item(&metadata_queue, &pack);
+    pthread_cleanup_push(metadata_pack_cleanup_function, (void *)&pack);
     if (config.metadata_enabled) {
       metadata_process(pack.type, pack.code, pack.data, pack.length);
 #ifdef HAVE_METADATA_HUB
@@ -1249,21 +1307,22 @@ void *metadata_thread_function(__attribute__((unused)) void *ignore) {
       }
 #endif
     }
-    if (pack.carrier)
-      msg_free(pack.carrier); // release the message
-    else if (pack.data)
-      free(pack.data);
+    pthread_cleanup_pop(1);
   }
+  pthread_cleanup_pop(1); // will never happen
   pthread_exit(NULL);
 }
 
 void metadata_init(void) {
-  // create a pc_queue for passing information to a threaded metadata handler
-  pc_queue_init(&metadata_queue, (char *)&metadata_queue_items, sizeof(metadata_package),
-                metadata_queue_size);
   int ret = pthread_create(&metadata_thread, NULL, metadata_thread_function, NULL);
   if (ret)
     debug(1, "Failed to create metadata thread!");
+}
+
+void metadata_stop(void) {
+  debug(1, "metadata_stop called.");
+  pthread_cancel(metadata_thread);
+  pthread_join(metadata_thread, NULL);
 }
 
 int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rtsp_message *carrier,
@@ -1471,21 +1530,20 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
 
     if (!playing_conn)
       die("Non existent playing_conn with play_lock enabled.");
-    debug(1, "RTSP Conversation thread %d already playing when asked by thread %d.",
+    debug(1, "Connection %d: already playing when asked by connection %d.",
           playing_conn->connection_number, conn->connection_number);
     if (playing_conn->stop) {
       debug(1, "Playing connection is already shutting down; waiting for it...");
       should_wait = 1;
     } else if (config.allow_session_interruption == 1) {
-      // some other thread has the player ... ask it to relinquish the thread
+      // some thread has the player ... ask it to relinquish the thread
       debug(1, "ANNOUNCE: playing connection %d being interrupted by connection %d.",
             playing_conn->connection_number, conn->connection_number);
       if (playing_conn == conn) {
-        debug(1, "ANNOUNCE asking to stop itself.");
+        debug(1, "ANNOUNCE asking to stop itself! Nothing done.");
       } else {
+        player_stop(playing_conn);
         playing_conn->stop = 1;
-        memory_barrier();
-        pthread_kill(playing_conn->thread, SIGUSR1);
         should_wait = 1;
       }
     }
@@ -1497,7 +1555,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     if (pthread_mutex_trylock(&play_lock) == 0)
       have_the_player = 1;
     else
-      debug(1, "ANNOUNCE failed to get the player");
+      debug(1, "Connection %d: ANNOUNCE failed to get the player", conn->connection_number);
   }
 
   if (have_the_player) {
@@ -1638,7 +1696,8 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     resp->respcode = 200;
   } else {
     resp->respcode = 453;
-    debug(1, "Already playing.");
+    debug(1, "Connection %d: failed because a connection is already playing.",
+          conn->connection_number);
   }
 
 out:
@@ -1719,7 +1778,7 @@ static void apple_challenge(int fd, rtsp_message *req, rtsp_message *resp) {
   if (padding)
     *padding = 0;
 
-  msg_add_header(resp, "Apple-Response", encoded);
+  msg_add_header(resp, "Apple-Response", encoded); // will be freed when the response is freed.
   free(challresp);
   free(encoded);
 }
@@ -1733,7 +1792,7 @@ static char *make_nonce(void) {
   if (read(fd, random, sizeof(random)) != sizeof(random))
     debug(1, "Error reading /dev/random");
   close(fd);
-  return base64_enc(random, 8);
+  return base64_enc(random, 8); // returns a pointer to malloc'ed memory
 }
 
 static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
@@ -1884,36 +1943,100 @@ authenticate:
   return 1;
 }
 
+void rtsp_conversation_thread_cleanup_function(void *arg) {
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  // debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
+  //      conn->connection_number);
+  player_stop(conn);
+  if (conn->fd > 0) {
+    // debug(1, "Connection %d: closing fd %d.",
+    //    conn->connection_number,conn->fd);
+    close(conn->fd);
+  }
+  if (conn->auth_nonce) {
+    free(conn->auth_nonce);
+    conn->auth_nonce = NULL;
+  }
+  rtp_terminate(conn);
+  if (playing_conn == conn) {
+    debug(3, "Unlocking play lock on RTSP conversation thread %d.", conn->connection_number);
+    playing_conn = NULL;
+    pthread_mutex_unlock(&play_lock);
+  }
+
+  if (conn->dacp_id) {
+    free(conn->dacp_id);
+    conn->dacp_id = NULL;
+  }
+
+  debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
+  conn->running = 0;
+
+  // remove flow control and mutexes
+  int rc = pthread_cond_destroy(&conn->flowcontrol);
+  if (rc)
+    debug(1, "Connection %d: error %d destroying flow control condition variable.",
+          conn->connection_number, rc);
+  rc = pthread_mutex_destroy(&conn->ab_mutex);
+  if (rc)
+    debug(1, "Connection %d: error %d destroying ab_mutex.", conn->connection_number, rc);
+  rc = pthread_mutex_destroy(&conn->flush_mutex);
+  if (rc)
+    debug(1, "Connection %d: error %d destroying flush_mutex.", conn->connection_number, rc);
+}
+
+void msg_cleanup_function(void *arg) {
+  // debug(1, "msg_cleanup_function called.");
+  msg_free((rtsp_message *)arg);
+}
+
 static void *rtsp_conversation_thread_func(void *pconn) {
   rtsp_conn_info *conn = pconn;
 
-  // create the player thread lock.
-  int rwli = pthread_rwlock_init(&conn->player_thread_lock, NULL);
-  if (rwli != 0)
-    die("Error %d initialising player_thread_lock for conversation thread %d.", rwli,
-        conn->connection_number);
+  int rc = pthread_mutex_init(&conn->flush_mutex, NULL);
+  if (rc)
+    die("Connection %d: error %d initialising flush_mutex.", conn->connection_number, rc);
+  rc = pthread_mutex_init(&conn->ab_mutex, NULL);
+  if (rc)
+    die("Connection %d: error %d initialising ab_mutex.", conn->connection_number, rc);
+// set the flowcontrol condition variable to wait on a monotonic clock
+#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
+  pthread_condattr_t attr;
+  pthread_condattr_init(&attr);
+  pthread_condattr_setclock(&attr, CLOCK_MONOTONIC); // can't do this in OS X, and don't need it.
+  rc = pthread_cond_init(&conn->flowcontrol, &attr);
+#endif
+#ifdef COMPILE_FOR_OSX
+  rc = pthread_cond_init(&conn->flowcontrol, NULL);
+#endif
+  if (rc)
+    die("Connection %d: error %d initialising flow control condition variable.",
+        conn->connection_number, rc);
 
   rtp_initialise(conn);
-
-  rtsp_message *req, *resp;
-  char *hdr, *auth_nonce = NULL;
+  char *hdr = NULL;
 
   enum rtsp_read_request_response reply;
 
   int rtsp_read_request_attempt_count = 1; // 1 means exit immediately
+  rtsp_message *req, *resp;
 
+  pthread_cleanup_push(rtsp_conversation_thread_cleanup_function, (void *)conn);
   while (conn->stop == 0) {
     int debug_level = 3; // for printing the request and response
     reply = rtsp_read_request(conn, &req);
     if (reply == rtsp_read_request_response_ok) {
+      pthread_cleanup_push(msg_cleanup_function, (void *)req);
+      resp = msg_init();
+      pthread_cleanup_push(msg_cleanup_function, (void *)resp);
+      resp->respcode = 400;
+
       if (strcmp(req->method, "OPTIONS") !=
           0) // the options message is very common, so don't log it until level 3
         debug_level = 2;
       debug(debug_level, "RTSP thread %d received an RTSP Packet of type \"%s\":",
             conn->connection_number, req->method),
           debug_print_msg_headers(debug_level, req);
-      resp = msg_init();
-      resp->respcode = 400;
 
       apple_challenge(conn->fd, req, resp);
       hdr = msg_get_header(req, "CSeq");
@@ -1922,7 +2045,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       //      msg_add_header(resp, "Audio-Jack-Status", "connected; type=analog");
       msg_add_header(resp, "Server", "AirTunes/105.1");
 
-      if ((conn->authorized == 1) || (rtsp_auth(&auth_nonce, req, resp)) == 0) {
+      if ((conn->authorized == 1) || (rtsp_auth(&conn->auth_nonce, req, resp)) == 0) {
         conn->authorized = 1; // it must have been authorized or didn't need a password
         struct method_handler *mh;
         int method_selected = 0;
@@ -1949,8 +2072,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (conn->stop == 0) {
         msg_write_response(conn->fd, resp);
       }
-      msg_free(req);
-      msg_free(resp);
+      pthread_cleanup_pop(1);
+      pthread_cleanup_pop(1);
     } else {
       int tstop = 0;
       if (reply == rtsp_read_request_response_immediate_shutdown_requested)
@@ -1991,26 +2114,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       }
     }
   }
-
-  if (conn->fd > 0)
-    close(conn->fd);
-  if (auth_nonce)
-    free(auth_nonce);
-  rtp_terminate(conn);
-  if (playing_conn == conn) {
-    debug(3, "Unlocking play lock on RTSP conversation thread %d.", conn->connection_number);
-    playing_conn = NULL;
-    pthread_mutex_unlock(&play_lock);
-  }
-  debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
-  conn->running = 0;
-
-  // release the player_thread_lock
-  int rwld = pthread_rwlock_destroy(&conn->player_thread_lock);
-  if (rwld)
-    debug(1, "Error %d destroying player_thread_lock for conversation thread %d.", rwld,
-          conn->connection_number);
-
+  pthread_cleanup_pop(1);
   pthread_exit(NULL);
 }
 
@@ -2032,6 +2136,15 @@ static const char *format_address(struct sockaddr *fsa) {
   return inet_ntop(fsa->sa_family, addr, string, sizeof(string));
 }
 */
+
+void rtsp_listen_loop_cleanup_handler(__attribute__((unused)) void *arg) {
+  debug(1, "rtsp_listen_loop_cleanup_handler called.");
+  cancel_all_RTSP_threads();
+  int *sockfd = (int *)arg;
+  mdns_unregister();
+  if (sockfd)
+    free(sockfd);
+}
 
 void rtsp_listen_loop(void) {
   struct addrinfo hints, *info, *p;
@@ -2131,7 +2244,9 @@ void rtsp_listen_loop(void) {
 
   int acceptfd;
   struct timeval tv;
+  pthread_cleanup_push(rtsp_listen_loop_cleanup_handler, (void *)sockfd);
   do {
+    pthread_testcancel();
     tv.tv_sec = 60;
     tv.tv_usec = 0;
 
@@ -2166,7 +2281,8 @@ void rtsp_listen_loop(void) {
 
     conn->fd = accept(acceptfd, (struct sockaddr *)&conn->remote, &slen);
     if (conn->fd < 0) {
-      debug(1, "New RTSP connection on port %d not accepted:", config.port);
+      debug(1, "Connection %d: New connection on port %d not accepted:", conn->connection_number,
+            config.port);
       perror("failed to accept connection");
       free(conn);
     } else {
@@ -2185,8 +2301,8 @@ void rtsp_listen_loop(void) {
           sa = (struct sockaddr_in *)&conn->remote;
           inet_ntop(AF_INET, &(sa->sin_addr), remote_ip4, INET_ADDRSTRLEN);
           unsigned short int rport = ntohs(sa->sin_port);
-          debug(2, "New RTSP connection from %s:%u to self at %s:%u on conversation thread %d.",
-                remote_ip4, rport, ip4, tport, conn->connection_number);
+          debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
+                conn->connection_number, remote_ip4, rport, ip4, tport);
         }
 #ifdef AF_INET6
         if (local_info->SAFAMILY == AF_INET6) {
@@ -2202,8 +2318,8 @@ void rtsp_listen_loop(void) {
           sa6 = (struct sockaddr_in6 *)&conn->remote; // pretend this is loaded with something
           inet_ntop(AF_INET6, &(sa6->sin6_addr), remote_ip6, INET6_ADDRSTRLEN);
           u_int16_t rport = ntohs(sa6->sin6_port);
-          debug(2, "New RTSP connection from [%s]:%u to self at [%s]:%u on conversation thread %d.",
-                remote_ip6, rport, ip6, tport, conn->connection_number);
+          debug(2, "Connection %d: new connection from [%s]:%u to self at [%s]:%u.",
+                conn->connection_number, remote_ip6, rport, ip6, tport);
         }
 #endif
 
@@ -2227,11 +2343,6 @@ void rtsp_listen_loop(void) {
     }
   } while (1);
 
-  mdns_unregister();
-
-  if (sockfd)
-    free(sockfd);
-
-  // perror("select");
-  // die("fell out of the RTSP select loop");
+  pthread_cleanup_pop(0);
+  debug(1, "Oops -- fell out of the RTSP select loop");
 }

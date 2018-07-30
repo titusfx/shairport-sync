@@ -2,6 +2,7 @@
 #define _COMMON_H
 
 #include <libconfig.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
 #include <sys/socket.h>
@@ -79,6 +80,7 @@ typedef struct {
   char *password;
   char *service_name; // the name for the shairport service, e.g. "Shairport Sync Version %v running
                       // on host %h"
+
 #ifdef CONFIG_PA
   char *pa_application_name; // the name under which Shairport Sync shows up as an "Application" in
                              // the Sound Preferences in most desktop Linuxes.
@@ -227,6 +229,7 @@ void r64init(uint64_t seed);
 uint64_t r64u();
 int64_t r64i();
 
+uint64_t *ranarray;
 void r64arrayinit();
 uint64_t ranarray64u();
 int64_t ranarray64i();
@@ -263,6 +266,9 @@ uint64_t fp_time_at_startup, fp_time_at_last_debug_message;
 long endianness;
 uint32_t uatoi(const char *nptr);
 
+// this is for allowing us to cancel the whole program
+pthread_t main_thread_id;
+
 shairport_cfg config;
 config_t config_file_stuff;
 
@@ -291,6 +297,12 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *filename, const int 
                         int debuglevel);
 
 #define debug_mutex_unlock(mu, d) _debug_mutex_unlock(mu, __FILE__, __LINE__, d)
+
+void pthread_cleanup_debug_mutex_unlock(void *arg);
+
+#define pthread_cleanup_debug_mutex_lock(mu, t, d)                                                 \
+  if (_debug_mutex_lock(mu, t, __FILE__, __LINE__, d) == 0)                                        \
+  pthread_cleanup_push(pthread_cleanup_debug_mutex_unlock, (void *)mu)
 
 char *get_version_string(); // mallocs a string space -- remember to free it afterwards
 

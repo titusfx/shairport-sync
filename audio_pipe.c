@@ -54,7 +54,7 @@ static void start(__attribute__((unused)) int sample_rate,
   }
 }
 
-static void play(void *buf, int samples) {
+static int play(void *buf, int samples) {
   // if the file is not open, try to open it.
   char errorstring[1024];
   if (fd == -1) {
@@ -73,6 +73,7 @@ static void play(void *buf, int samples) {
     warn("Error %d opening the pipe named \"%s\": \"%s\".", errno, pipename, errorstring);
     warned = 1;
   }
+  return warned;
 }
 
 static void stop(void) {

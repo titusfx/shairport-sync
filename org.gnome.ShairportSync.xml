@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <node name="/" xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
   <interface name="org.gnome.ShairportSync">
+    <method name="Quit"/>
     <property name="LoudnessFilterActive" type="b" access="readwrite" />
     <property name="LoudnessThreshold" type="d" access="readwrite" />
     <method name="RemoteCommand">
