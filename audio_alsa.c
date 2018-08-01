@@ -894,14 +894,16 @@ int delay(long *the_delay) {
 }
 
 int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
+  int response = 0; // zero means okay
   if (measurement_data_is_valid) {
     *elapsed_time = measurement_time - measurement_start_time;
     *frames_played = frames_played_at_measurement_time - frames_played_at_measurement_start_time;
   } else {
     *elapsed_time = 0;
     *frames_played = 0;
+    response = -1;
   }
-  return 0;
+  return response;
 }
 
 static int play(void *buf, int samples) {

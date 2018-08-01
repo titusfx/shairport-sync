@@ -1445,7 +1445,7 @@ void player_thread_cleanup_handler(void *arg) {
     int elapsedHours = rawSeconds / 3600;
     int elapsedMin = (rawSeconds / 60) % 60;
     int elapsedSec = rawSeconds % 60;
-    if (conn->frame_rate_status == 0)
+    if (conn->frame_rate_status)
       inform("Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f, output: %0.2f frames per second.",
              elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate, conn->frame_rate);
     else
@@ -1611,7 +1611,10 @@ void *player_thread_func(void *arg) {
   conn->playstart = time(NULL);
 
   conn->frame_rate = 0.0;
-  conn->frame_rate_status = -1; // zero means okay
+  conn->frame_rate_status = 0;
+
+  conn->input_frame_rate = 0.0;
+  conn->input_frame_rate_status = 0;
 
   conn->buffer_occupancy = 0;
 
@@ -2299,6 +2302,35 @@ void *player_thread_func(void *arg) {
           }
         }
         if (play_number % print_interval == 0) {
+          
+          // here, calculate the input and output frame rates, where possible, even if statistics have not been requested
+          // this is to calculate them in case they are needed by the D-Bus interface or elsewhere.
+          
+          if (conn->input_frame_rate_status) {
+            uint64_t elapsed_reception_time, frames_received;
+            elapsed_reception_time = conn->frames_inward_measurement_time - conn->frames_inward_measurement_start_time;
+            frames_received = conn->frames_inward_frames_received_at_measurement_time - conn->frames_inward_frames_received_at_measurement_start_time;
+            conn->input_frame_rate = (1.0 * frames_received) / elapsed_reception_time; // an IEEE double calculation with two 64-bit integers
+            conn->input_frame_rate = conn->input_frame_rate * (uint64_t)0x100000000; // this should just change the [binary] exponent in the IEEE FP representation; the mantissa should be unaffected.
+          }          
+          
+          if ((config.output->delay) && (config.no_sync == 0) && (config.output->rate_info)) {
+            uint64_t elapsed_play_time, frames_played;
+            if (config.output->rate_info(&elapsed_play_time, &frames_played)==0)
+              conn->frame_rate_status = 1;
+            else
+              conn->frame_rate_status = 0; 
+            if (conn->frame_rate_status) {         
+              conn->frame_rate =
+                  (1.0 * frames_played) / elapsed_play_time; // an IEEE double calculation with two 64-bit integers
+              conn->frame_rate =
+                  conn->frame_rate * (uint64_t)0x100000000; // this should just change the [binary] exponent in the IEEE FP representation; the mantissa should be unaffected.
+            } else {
+              conn->frame_rate = 0.0;
+            }
+          }                
+          
+
           // we can now calculate running averages for sync error (frames), corrections (ppm),
           // insertions plus deletions (ppm), drift (ppm)
           double moving_average_sync_error = (1.0 * tsum_of_sync_errors) / number_of_statistics;
@@ -2309,26 +2341,9 @@ void *player_thread_func(void *arg) {
           // if ((play_number/print_interval)%20==0)
           if (config.statistics_requested) {
             if (at_least_one_frame_seen) {
-              if (conn->input_frame_rate_status == 1) {
-                uint64_t elapsed_reception_time, frames_received;
-                elapsed_reception_time = conn->frames_inward_measurement_time - conn->frames_inward_measurement_start_time;
-                frames_received = conn->frames_inward_frames_received_at_measurement_time - conn->frames_inward_frames_received_at_measurement_start_time;
-                conn->input_frame_rate = 1.0 * (frames_received * (uint64_t)0x100000000) / elapsed_reception_time;
-              } else {
-                conn->input_frame_rate = 0.0;
-              }
             
               if ((config.output->delay)) {
                 if (config.no_sync == 0) {
-                  if (config.output->rate_info) {
-                    uint64_t elapsed_play_time, frames_played;
-                    conn->frame_rate_status =
-                        config.output->rate_info(&elapsed_play_time, &frames_played);
-                    if (conn->frame_rate_status == 0) {
-                      conn->frame_rate =
-                          1.0 * (frames_played * (uint64_t)0x100000000) / elapsed_play_time;
-                    }
-                  }                  
                   inform("%*.1f," /* Sync error in milliseconds */
                          "%*.1f," /* net correction in ppm */
                          "%*.1f," /* corrections in ppm */
