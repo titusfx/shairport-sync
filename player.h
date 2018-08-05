@@ -24,13 +24,15 @@
 #include "alac.h"
 #include "audio.h"
 
-#define time_ping_history 8
+#define time_ping_history 32
 
 typedef struct time_ping_record {
   uint64_t local_to_remote_difference;
   uint64_t dispersion;
   uint64_t local_time;
   uint64_t remote_time;
+  int sequence_number;
+  int chosen;
 } time_ping_record;
 
 typedef uint16_t seq_t;
@@ -182,14 +184,21 @@ typedef struct {
   uint16_t local_timing_port;
 
   int64_t latency_delayed_timestamp; // this is for debugging only...
-  int64_t reference_timestamp;
-  uint64_t reference_timestamp_time;
-  uint64_t remote_reference_timestamp_time;
 
+  // this is what connects an rtp timestamp to the remote time
+
+  int64_t reference_timestamp;
+  uint64_t remote_reference_timestamp_time;  
+
+  
+  // the ratio of the following should give us the operating rate, nominally 44,100
+  int64_t reference_to_previous_frame_difference;
+  uint64_t reference_to_previous_time_difference;
+  
   // debug variables
   int request_sent;
 
-  uint8_t time_ping_count;
+  int time_ping_count;
   struct time_ping_record time_pings[time_ping_history];
 
   uint64_t departure_time; // dangerous -- this assumes that there will never be two timing
@@ -197,12 +206,14 @@ typedef struct {
 
   pthread_mutex_t reference_time_mutex;
 
+  double local_to_remote_time_gradient; // if no drift, this would be exactly 1.0; likely it's slightly above or  below.
   uint64_t local_to_remote_time_difference; // used to switch between local and remote clocks
+  uint64_t local_to_remote_time_difference_measurement_time; // when the above was calculated
 
   int last_stuff_request;
 
-  int64_t play_segment_reference_frame;
-  uint64_t play_segment_reference_frame_remote_time;
+  // int64_t play_segment_reference_frame;
+  // uint64_t play_segment_reference_frame_remote_time;
 
   int32_t buffer_occupancy; // allow it to be negative because seq_diff may be negative
   int64_t session_corrections;

@@ -21,4 +21,13 @@ void get_reference_timestamp_stuff(int64_t *timestamp, uint64_t *timestamp_time,
                                    uint64_t *remote_timestamp_time, rtsp_conn_info *conn);
 void clear_reference_timestamp(rtsp_conn_info *conn);
 
+int have_timestamp_timing_information(rtsp_conn_info *conn);
+
+int get_frame_play_time(int64_t timestamp, int sample_ratio, uint64_t *time_to_play);
+
+int frame_to_local_time(int64_t timestamp, uint64_t *time, rtsp_conn_info *conn);
+int local_time_to_frame(uint64_t time, int64_t *frame, rtsp_conn_info *conn);
+
+int sanitised_source_rate_information(int64_t *frames, uint64_t *time, rtsp_conn_info *conn);
+
 #endif // _RTP_H
