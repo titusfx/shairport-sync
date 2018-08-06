@@ -848,7 +848,7 @@ static void start(int i_sample_rate, int i_sample_format) {
 
 int delay(long *the_delay) {
   // snd_pcm_sframes_t is a signed long -- hence the return of a "long"
-  int reply;
+  int reply = 0;
   // debug(3,"audio_alsa delay called.");
   if (alsa_handle == NULL) {
     return -ENODEV;
