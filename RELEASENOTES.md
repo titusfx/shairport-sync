@@ -1,6 +1,12 @@
-Version 3.3d0
+Version 3.3d1
 ====
 Internal changes are being made for version 3.3 to avoid using `SIGUSR1` and `pthread_kill` to stop threads; the standard `pthread_cancel` and friends are being used instead. This should lead to more reliable and orderly cancellation of sessions and threads. However, it is quite a complex change, so bugs may have been introduced or reactivated. Lots of testing needed.
+
+**Bug Fix**
+* Fix an arithmetic overflow in frame rate calculations that could occur after 2^32 frames – approximately 27 hours at 44,100 frames per second. 
+
+Version 3.3d0
+====
 
 **New Features**
 * Frame rates! Exact input and output frame rates are now included in the `statistics` output. The figures generated are averaged over the entire play session since the last pause/resume, if any, so they should settle down and become more accurate over a long play session, say a couple of hours. Timing is relative to `CLOCK_MONOTONIC`. When your system is connected for an appreciable period to network time, e.g. using an NTP client, `CLOCK_MONOTONIC` is adjusted ("conditioned") to keep time extremely accurately. The calculated output frame rate should be very accurate. The calculated input frame rate will vary considerably over short intervals due to network conditions, but over a long play session it should also become very accurate.
