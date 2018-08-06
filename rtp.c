@@ -999,6 +999,9 @@ int sanitised_source_rate_information(int64_t *frames, uint64_t *time, rtsp_conn
   return result;
 }
 
+// we assume here that the timestamp is a timestamp calculated at the output rate, which could be an integer multiple of the input rate
+// the reference timestamps are denominated in terms of the input rate
+
 int frame_to_local_time(int64_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
   debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);
   int result = 0;
@@ -1006,15 +1009,15 @@ int frame_to_local_time(int64_t timestamp, uint64_t *time, rtsp_conn_info *conn)
   int64_t frame_difference;
   result = sanitised_source_rate_information(&frame_difference,&time_difference,conn);
   
-  int64_t timestamp_interval = timestamp - conn->reference_timestamp; // we could be dealing with multiples of 44100 (nominally)
+  int64_t timestamp_interval = timestamp - conn->reference_timestamp*conn->output_sample_ratio; // we could be dealing with multiples of 44100 (nominally)
   // debug(1, "Timestamp interval: %" PRId64 " frames with reference timestamp %" PRId64 ".",timestamp_interval,conn->reference_timestamp);
   uint64_t timestamp_interval_time;
   uint64_t remote_time_of_timestamp;
   if (timestamp_interval>=0) {
-    timestamp_interval_time = (timestamp_interval * time_difference)/frame_difference; // this is the nominal time, based on the fps specified between current and previous sync frame.
+    timestamp_interval_time = (timestamp_interval * time_difference)/(frame_difference*conn->output_sample_ratio); // this is the nominal time, based on the fps specified between current and previous sync frame.
     remote_time_of_timestamp = conn->remote_reference_timestamp_time + timestamp_interval_time; // based on the reference timestamp time plus the time interval calculated based on the specified fps.
   } else {
-    timestamp_interval_time = ((-timestamp_interval) * time_difference)/frame_difference; // this is the nominal time, based on the fps specified between current and previous sync frame.
+    timestamp_interval_time = ((-timestamp_interval) * time_difference)/(frame_difference*conn->output_sample_ratio); // this is the nominal time, based on the fps specified between current and previous sync frame.
     remote_time_of_timestamp = conn->remote_reference_timestamp_time - timestamp_interval_time; // based on the reference timestamp time plus the time interval calculated based on the specified fps.
   }
   *time = remote_time_of_timestamp - local_to_remote_time_difference_now(conn);
@@ -1035,19 +1038,20 @@ int local_time_to_frame(uint64_t time, int64_t *frame, rtsp_conn_info *conn) {
   // next, get the remote time interval from the remote_time to the reference time
   uint64_t time_interval;
   
+  // here, we calculate the time interval, in terms of remote time
   if (remote_time >= conn->remote_reference_timestamp_time)
     time_interval = remote_time - conn->remote_reference_timestamp_time;
   else
     time_interval = conn->remote_reference_timestamp_time - remote_time;
   
-  // now, convert the remote time interval into frames
+  // now, convert the remote time interval into frames using the frame rate we have observed or which has been nominated
   int64_t frame_interval = (time_interval * frame_difference)/time_difference;
   if (remote_time >= conn->remote_reference_timestamp_time) {
     // debug(1,"Frame interval is %" PRId64 " frames.",frame_interval);
-    *frame = conn->reference_timestamp+frame_interval;
+    *frame = (conn->reference_timestamp+frame_interval)*conn->output_sample_ratio;
   } else {
     // debug(1,"Frame interval is %" PRId64 " frames.",-frame_interval);
-    *frame = conn->reference_timestamp-frame_interval;
+    *frame = (conn->reference_timestamp-frame_interval)*conn->output_sample_ratio;
   }
   debug_mutex_unlock(&conn->reference_time_mutex, 3);
   return result;

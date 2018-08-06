@@ -973,10 +973,10 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               frame_to_local_time(conn->first_packet_timestamp +conn->latency * conn->output_sample_ratio + (int64_t)(config.audio_backend_latency_offset * config.output_rate),&should_be_time,conn);
              
               if(should_be_time>=conn->first_packet_time_to_play) {
-                if ((((should_be_time-conn->first_packet_time_to_play)*1000000)>>32)>10)
+                if ((((should_be_time-conn->first_packet_time_to_play)*1000000)>>32)>10*conn->output_sample_ratio)
                   debug(1,"New time for first packet timestamp %" PRId64 " is later than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((should_be_time-conn->first_packet_time_to_play)*1000000)>>32);
               } else {
-                if ((((conn->first_packet_time_to_play-should_be_time)*1000000)>>32)>10)
+                if ((((conn->first_packet_time_to_play-should_be_time)*1000000)>>32)>10*conn->output_sample_ratio)
                   debug(1,"New time for first packet timestamp %" PRId64 " is earlier than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((conn->first_packet_time_to_play-should_be_time)*1000000)>>32);          
               } 
               
@@ -1014,10 +1014,10 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             frame_to_local_time(conn->first_packet_timestamp +conn->latency * conn->output_sample_ratio + (int64_t)(config.audio_backend_latency_offset * config.output_rate),&should_be_time,conn);
            
             if(should_be_time>=conn->first_packet_time_to_play) {
-              if ((((should_be_time-conn->first_packet_time_to_play)*1000000)>>32)>50)
+              if ((((should_be_time-conn->first_packet_time_to_play)*1000000)>>32)>50*conn->output_sample_ratio)
                 debug(1,"New time for recalculated first packet timestamp %" PRId64 " is later than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((should_be_time-conn->first_packet_time_to_play)*1000000)>>32);
             } else {
-              if ((((conn->first_packet_time_to_play-should_be_time)*1000000)>>32)>50)
+              if ((((conn->first_packet_time_to_play-should_be_time)*1000000)>>32)>50*conn->output_sample_ratio)
                 debug(1,"New time for recalculated first packet timestamp %" PRId64 " is earlier than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((conn->first_packet_time_to_play-should_be_time)*1000000)>>32);          
             }                  
 
@@ -2065,7 +2065,7 @@ void *player_thread_func(void *arg) {
             int64_t should_be_frame;            
             local_time_to_frame(local_time_now,&should_be_frame,conn);
             
-            if (abs(td_in_frames + rt-should_be_frame)>10)
+            if (abs(td_in_frames + rt-should_be_frame)>10*conn->output_sample_ratio)
               debug(1,"Difference between old and new frame number is %" PRId64 " frames.",td_in_frames + rt - should_be_frame);
             // this is the actual delay, including the latency we actually want, which will
             // fluctuate a good bit about a potentially rising or falling trend.
