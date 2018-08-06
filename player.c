@@ -973,11 +973,11 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               frame_to_local_time(conn->first_packet_timestamp +conn->latency * conn->output_sample_ratio + (int64_t)(config.audio_backend_latency_offset * config.output_rate),&should_be_time,conn);
              
               if(should_be_time>=conn->first_packet_time_to_play) {
-                if ((((should_be_time-conn->first_packet_time_to_play)*1000000)>>32)>10*conn->output_sample_ratio)
-                  debug(1,"New time for first packet timestamp %" PRId64 " is later than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((should_be_time-conn->first_packet_time_to_play)*1000000)>>32);
+                if ((((should_be_time-conn->first_packet_time_to_play)*1000000)>>32)>10)
+                  debug(2,"New time for first packet timestamp %" PRId64 " is later than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((should_be_time-conn->first_packet_time_to_play)*1000000)>>32);
               } else {
-                if ((((conn->first_packet_time_to_play-should_be_time)*1000000)>>32)>10*conn->output_sample_ratio)
-                  debug(1,"New time for first packet timestamp %" PRId64 " is earlier than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((conn->first_packet_time_to_play-should_be_time)*1000000)>>32);          
+                if ((((conn->first_packet_time_to_play-should_be_time)*1000000)>>32)>10)
+                  debug(2,"New time for first packet timestamp %" PRId64 " is earlier than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((conn->first_packet_time_to_play-should_be_time)*1000000)>>32);          
               } 
               
               // cut over to new calculation scheme
@@ -1014,11 +1014,11 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             frame_to_local_time(conn->first_packet_timestamp +conn->latency * conn->output_sample_ratio + (int64_t)(config.audio_backend_latency_offset * config.output_rate),&should_be_time,conn);
            
             if(should_be_time>=conn->first_packet_time_to_play) {
-              if ((((should_be_time-conn->first_packet_time_to_play)*1000000)>>32)>50*conn->output_sample_ratio)
-                debug(1,"New time for recalculated first packet timestamp %" PRId64 " is later than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((should_be_time-conn->first_packet_time_to_play)*1000000)>>32);
+              if ((((should_be_time-conn->first_packet_time_to_play)*1000000)>>32)>50)
+                debug(2,"New time for recalculated first packet timestamp %" PRId64 " is later than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((should_be_time-conn->first_packet_time_to_play)*1000000)>>32);
             } else {
-              if ((((conn->first_packet_time_to_play-should_be_time)*1000000)>>32)>50*conn->output_sample_ratio)
-                debug(1,"New time for recalculated first packet timestamp %" PRId64 " is earlier than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((conn->first_packet_time_to_play-should_be_time)*1000000)>>32);          
+              if ((((conn->first_packet_time_to_play-should_be_time)*1000000)>>32)>50)
+                debug(2,"New time for recalculated first packet timestamp %" PRId64 " is earlier than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((conn->first_packet_time_to_play-should_be_time)*1000000)>>32);          
             }                  
 
 
@@ -1239,10 +1239,10 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
         
         if(new_time_to_play>=time_to_play) {
           if ((((new_time_to_play-time_to_play)*1000000)>>32)>100)
-            debug(1,"New time for frame %" PRId64 " is later than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((new_time_to_play-time_to_play)*1000000)>>32);
+            debug(2,"New time for frame %" PRId64 " is later than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((new_time_to_play-time_to_play)*1000000)>>32);
         } else {
           if ((((time_to_play-new_time_to_play)*1000000)>>32)>100)
-            debug(1,"New time for frame %" PRId64 " is earlier than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((time_to_play-new_time_to_play)*1000000)>>32);          
+            debug(2,"New time for frame %" PRId64 " is earlier than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((time_to_play-new_time_to_play)*1000000)>>32);          
         } 
         // cut over to the new calculation system
         time_to_play = new_time_to_play; 
