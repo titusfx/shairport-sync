@@ -151,7 +151,7 @@ void metadata_hub_modify_prolog(void) {
   // debug(1, "locking metadata hub for writing");
   if (pthread_rwlock_trywrlock(&metadata_hub_re_lock) != 0) {
     debug(2, "Metadata_hub write lock is already taken -- must wait.");
-    pthread_rwlock_unlock(&metadata_hub_re_lock);
+    pthread_rwlock_wrlock(&metadata_hub_re_lock);
     debug(2, "Okay -- acquired the metadata_hub write lock.");
   }
 }
