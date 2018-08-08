@@ -80,7 +80,7 @@ uint64_t local_to_remote_time_difference_now(rtsp_conn_info *conn) {
   else
     drift = -((1.0*(time_since_last_local_to_remote_time_difference_measurement - remote_time_since_last_local_to_remote_time_difference_measurement))/(uint64_t)0x100000000);
 
-  double interval_ms = 1.0*(((time_since_last_local_to_remote_time_difference_measurement)*1000)>>32);
+//  double interval_ms = 1.0*(((time_since_last_local_to_remote_time_difference_measurement)*1000)>>32);
 //  debug(1,"Measurement drift is %.2f microseconds (0x%" PRIx64 " in 64-bit fp) over %.2f milliseconds with drift of %.2f ppm.",drift*1000000,(uint64_t)(drift*(uint64_t)0x100000000),interval_ms,(1.0-conn->local_to_remote_time_gradient)*1000000);
 //  return conn->local_to_remote_time_difference + (uint64_t)(drift*(uint64_t 0x100000000));
   return conn->local_to_remote_time_difference + (uint64_t)(drift*(uint64_t)0x100000000);
@@ -360,7 +360,7 @@ void *rtp_control_receiver(void *arg) {
             // this is for debugging
             uint64_t old_remote_reference_time = conn->remote_reference_timestamp_time;
             int64_t old_reference_timestamp = conn->reference_timestamp;
-            int64_t old_latency_delayed_timestamp = conn->latency_delayed_timestamp;
+            // int64_t old_latency_delayed_timestamp = conn->latency_delayed_timestamp;
             
             conn->remote_reference_timestamp_time = remote_time_of_sync;
             //conn->reference_timestamp_time =
@@ -375,7 +375,7 @@ void *rtp_control_receiver(void *arg) {
             else
               conn->reference_to_previous_frame_difference =  sync_rtp_timestamp - old_reference_timestamp;
 
-            int64_t delayed_frame_difference = rtp_timestamp_less_latency - old_latency_delayed_timestamp;
+            // int64_t delayed_frame_difference = rtp_timestamp_less_latency - old_latency_delayed_timestamp;
             
             /*
             if (old_remote_reference_time)
@@ -648,10 +648,11 @@ void *rtp_timing_receiver(void *arg) {
             // debug(1,"Record %d has the lowest dispersion with %0.2f us dispersion.",chosen,1.0*((tld * 1000000) >> 32));
             conn->time_pings[chosen].chosen = 1; // record the fact that it has been used for timing
 
+            /*
             // calculate the jitter -- the absolute time between the current local_to_remote_time_difference and the new one and add it to the total jitter count
             int64_t ji;
             int64_t ltd =0; // local time difference for the jitter
-                    
+                 
             if (conn->time_ping_count > 1) {
               if (l2rtd > conn->local_to_remote_time_difference) {
                 local_to_remote_time_jitter =
@@ -664,21 +665,17 @@ void *rtp_timing_receiver(void *arg) {
               }
               local_to_remote_time_jitter_count += 1;
             }
-
             if (conn->local_to_remote_time_difference_measurement_time < lt)
               ltd = lt-conn->local_to_remote_time_difference_measurement_time;
             else
               ltd = -(conn->local_to_remote_time_difference_measurement_time-lt);
             
-            /*
             if (ltd) {
               debug(1,"Jitter: %" PRId64 " microseconds in %" PRId64 " microseconds.", (ji * (int64_t)1000000)>>32, (ltd * (int64_t)1000000)>>32);
               debug(1,"Source clock to local clock drift: %.2f ppm.",((1.0*ji)/ltd)*1000000.0);
             } 
             // uncomment below to print jitter between client's clock and our clock
-            */
-            
-            /*
+
             if (ji) {
               int64_t rtus = (tld*1000000)>>32;
               debug(1,"Choosing time difference[%d] with dispersion of %" PRId64 " us with an adjustment of %" PRId64 " us",chosen, rtus, (ji*1000000)>>32);
@@ -700,10 +697,6 @@ void *rtp_timing_receiver(void *arg) {
             // calculate the line of best fit for relating the local time and the remote time
             // we will calculate the slope, which is the drift
             // see https://www.varsitytutors.com/hotmath/hotmath_help/topics/line-of-best-fit
-            
-            double m,drift;
-            
-            drift = 0.0;
             
             uint64_t y_bar = 0; // remote timestamp average
             uint64_t x_bar = 0; // local timestamp average
