@@ -1,3 +1,11 @@
+Version 3.3d2
+====
+Modify the code that synchronises the Shairport Sync system's clock with the source clock to try to take account of the sources's true rate, which (oddly, e.g. iTunes on a Mac) might not be exactly 44,100 fps. Also try to interpolate for the measured drift between the standard three-second timing snapshots. These changes make a very slight difference from time to time, of the order of microseconds, and it's not clear yet how reliable the drift interpolation is.
+
+**Bug Fixes**
+* Fix a bug in the `dbus` native interface which would silently switch `soxr` interpolation to `basic`.
+* Fix a mutex lock bug in the metadata hub. No known effects.
+
 Version 3.3d1
 ====
 Internal changes are being made for version 3.3 to avoid using `SIGUSR1` and `pthread_kill` to stop threads; the standard `pthread_cancel` and friends are being used instead. This should lead to more reliable and orderly cancellation of sessions and threads. However, it is quite a complex change, so bugs may have been introduced or reactivated. Lots of testing needed.
