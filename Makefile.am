@@ -6,14 +6,14 @@ bin_PROGRAMS = shairport-sync
 
 shairport_sync_SOURCES = shairport.c rtsp.c mdns.c mdns_external.c common.c rtp.c player.c alac.c audio.c loudness.c
 
-AM_CFLAGS = -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
+AM_CFLAGS = -Wno-multichar -Wall -Wextra -Wno-clobbered -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
 if BUILD_FOR_FREEBSD
-  AM_CPPFLAGS = -I/usr/local/include -Wno-multichar -DSYSCONFDIR=\"$(sysconfdir)\" -O2
+  AM_CPPFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -Wno-clobbered -DSYSCONFDIR=\"$(sysconfdir)\" -O2
 else
 if BUILD_FOR_OPENBSD
-  AM_CPPFLAGS = -I/usr/local/include -Wno-multichar -DSYSCONFDIR=\"$(sysconfdir)\"
+  AM_CPPFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -Wno-clobbered -DSYSCONFDIR=\"$(sysconfdir)\"
 else
-  AM_CPPFLAGS = -Wno-multichar -DSYSCONFDIR=\"$(sysconfdir)\"
+  AM_CPPFLAGS = -Wno-multichar -Wall -Wextra -Wno-clobbered -DSYSCONFDIR=\"$(sysconfdir)\"
 endif
 endif
 
