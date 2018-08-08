@@ -662,21 +662,31 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                                         config.loudness_reference_volume_db);
 
 #ifdef HAVE_APPLE_ALAC
-  if (config.use_apple_decoder == 0)
+  if (config.use_apple_decoder == 0) {
     shairport_sync_set_alacdecoder(SHAIRPORT_SYNC(shairportSyncSkeleton), "hammerton");
-  else
+    debug(1, ">> ALACDecoder set to \"hammerton\"");
+  } else {
     shairport_sync_set_alacdecoder(SHAIRPORT_SYNC(shairportSyncSkeleton), "apple");
+    debug(1, ">> ALACDecoder set to \"apple\"");
+  }
 #else
   shairport_sync_set_alacdecoder(SHAIRPORT_SYNC(shairportSyncSkeleton), "hammerton");
+  debug(1, ">> ALACDecoder set to \"hammerton\"");
+  
 #endif
 
-#ifdef HAVE_SOXR
-  if (config.packet_stuffing == ST_basic)
+#ifdef HAVE_LIBSOXR
+  if (config.packet_stuffing == ST_basic) {
     shairport_sync_set_interpolation(SHAIRPORT_SYNC(shairportSyncSkeleton), "basic");
-  else
+    debug(1, ">> interpolation set to \"basic\" (soxr support built in)");
+  } else {
     shairport_sync_set_interpolation(SHAIRPORT_SYNC(shairportSyncSkeleton), "soxr");
+    debug(1, ">> interpolation set to \"soxr\"");
+  }
 #else
   shairport_sync_set_interpolation(SHAIRPORT_SYNC(shairportSyncSkeleton), "basic");
+  debug(1, ">> interpolation set to \"basic\" (no soxr support)");
+
 #endif
 
   if (config.volume_control_profile == VCP_standard)
