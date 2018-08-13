@@ -356,6 +356,17 @@ void *rtp_control_receiver(void *arg) {
             }
 
             debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);
+            
+            if (conn->initial_reference_time==0) {
+              conn->initial_reference_time = remote_time_of_sync;
+              conn->initial_reference_timestamp = sync_rtp_timestamp;
+            } else {
+              uint64_t remote_frame_time_interval = conn->remote_reference_timestamp_time - conn->initial_reference_time; // here, this should never be zero
+              if (remote_frame_time_interval) {
+                conn->remote_frame_rate = (1.0 * (conn->reference_timestamp - conn->initial_reference_timestamp)) / remote_frame_time_interval; // an IEEE double calculation with two 64-bit integers
+                conn->remote_frame_rate = conn->remote_frame_rate * (uint64_t)0x100000000; // this should just change the [binary] exponent in the IEEE FP representation; the mantissa should be unaffected.
+              }            
+            }
 
             // this is for debugging
             uint64_t old_remote_reference_time = conn->remote_reference_timestamp_time;

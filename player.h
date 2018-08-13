@@ -191,6 +191,11 @@ typedef struct {
   uint64_t remote_reference_timestamp_time;  
 
   
+  // used as the initials values for calculating the rate at which the source thinks it's sending frames
+  int64_t initial_reference_timestamp;
+  uint64_t initial_reference_time;
+  double remote_frame_rate;
+
   // the ratio of the following should give us the operating rate, nominally 44,100
   int64_t reference_to_previous_frame_difference;
   uint64_t reference_to_previous_time_difference;
