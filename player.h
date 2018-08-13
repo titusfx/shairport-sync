@@ -24,7 +24,7 @@
 #include "alac.h"
 #include "audio.h"
 
-#define time_ping_history 32
+#define time_ping_history 64  // at 1 per three seconds, approximately three minutes of records
 
 typedef struct time_ping_record {
   uint64_t local_to_remote_difference;
@@ -207,6 +207,7 @@ typedef struct {
   pthread_mutex_t reference_time_mutex;
 
   double local_to_remote_time_gradient; // if no drift, this would be exactly 1.0; likely it's slightly above or  below.
+  int local_to_remote_time_gradient_sample_count; // the number of samples used to calculate the gradient
   uint64_t local_to_remote_time_difference; // used to switch between local and remote clocks
   uint64_t local_to_remote_time_difference_measurement_time; // when the above was calculated
 

@@ -2416,7 +2416,8 @@ void *player_thread_func(void *arg) {
                          "%*d,"   /* max buffer occupancy */
                          "%*.2f," /* input frame rate */
                          "%*.2f," /* output frame rate */
-                         "%*.2f", /* client clock to local clock drift in ppm */
+                         "%*.2f," /* output frame rate */
+                         "%*d",   /* sample count */
                          10,
                          1000 * moving_average_sync_error / config.output_rate, 10,
                          moving_average_correction * 1000000 / (352 * conn->output_sample_ratio),
@@ -2425,7 +2426,7 @@ void *player_thread_func(void *arg) {
                          12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
                          conn->too_late_packets, 7, conn->resend_requests, 7,
                          minimum_dac_queue_size, 5, minimum_buffer_occupancy, 5,
-                         maximum_buffer_occupancy, 11, conn->input_frame_rate, 11, conn->frame_rate ,  10, (1.0-conn->local_to_remote_time_gradient)*1000000);
+                         maximum_buffer_occupancy, 11, conn->input_frame_rate, 11, conn->frame_rate ,  10, (1.0-conn->local_to_remote_time_gradient)*1000000, 6, conn->local_to_remote_time_gradient_sample_count);
                 } else {
                   inform("%*.2f," /* Sync error in milliseconds */
                          "%*d,"   /* total packets */

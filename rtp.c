@@ -702,9 +702,12 @@ void *rtp_timing_receiver(void *arg) {
             uint64_t x_bar = 0; // local timestamp average
             int sample_count = 0;
           
-            
+            // approximate time in seconds to let the system settle down
+            const int settling_time = 60;
+            // number of points to have for calculating a valid drift
+            const int sample_point_minimum = 8;
             for (cc = 0; cc < conn->time_ping_count; cc++) 
-              if ((conn->time_pings[cc].chosen) && (conn->time_pings[cc].sequence_number>9)) { // wait for a minute or so....
+              if ((conn->time_pings[cc].chosen) && (conn->time_pings[cc].sequence_number>(settling_time/3))) { // wait for a approximate settling time
                 y_bar += (conn->time_pings[cc].remote_time>>12); //precision is down to 1/4th of a microsecond
                 x_bar += (conn->time_pings[cc].local_time>>12);
                 sample_count++;
@@ -717,7 +720,7 @@ void *rtp_timing_receiver(void *arg) {
             int64_t mtl, mbl;
             mtl=0;mbl=0;
             for (cc = 0; cc < conn->time_ping_count; cc++)
-              if ((conn->time_pings[cc].chosen) && (conn->time_pings[cc].sequence_number>9)) {
+              if ((conn->time_pings[cc].chosen) && (conn->time_pings[cc].sequence_number>(settling_time/3))) {
             
                 uint64_t slt = conn->time_pings[cc].local_time>>12;
                 if (slt > x_bar)
@@ -734,8 +737,9 @@ void *rtp_timing_receiver(void *arg) {
                 mtl = mtl + xid*yid;
                 mbl = mbl + xid*xid;              
               } 
-            if (sample_count > 2) { 
-              conn->local_to_remote_time_gradient = (1.0*mtl)/mbl;  
+            conn->local_to_remote_time_gradient_sample_count = sample_count; 
+            if (sample_count > sample_point_minimum) { 
+              conn->local_to_remote_time_gradient = (1.0*mtl)/mbl;
               // debug(1,"Drift is %12.2f ppm, based on %d samples.",(1.0-conn->local_to_remote_time_gradient)*1000000,sample_count);
             } else {
               conn->local_to_remote_time_gradient = 1.0;  
@@ -971,13 +975,16 @@ int have_timestamp_timing_information(rtsp_conn_info *conn) {
     return 1;
 }
 
+// set this to zero to use the rates supplied by the sources, which might not always be completely right...
+const int use_nominal_rate = 1; // specify whether to use the nominal input rate, usually 44100 fps 
+
 int sanitised_source_rate_information(int64_t *frames, uint64_t *time, rtsp_conn_info *conn) {
   int result = 0;
-  *frames = conn->input_rate;
+  *frames = conn->input_rate; 
   *time = (uint64_t)(0x100000000); // one second in fp form
   int64_t local_frames = conn->reference_to_previous_frame_difference;
   uint64_t local_time = conn->reference_to_previous_time_difference;
-  if ((local_frames == 0) || (local_time == 0)) {
+  if ((local_frames == 0) || (local_time == 0) || (use_nominal_rate)) {
     result = 1;
   } else {
     double calculated_frame_rate = ((1.0*local_frames)/local_time)*(uint64_t)0x100000000;
