@@ -6,14 +6,14 @@ bin_PROGRAMS = shairport-sync
 
 shairport_sync_SOURCES = shairport.c rtsp.c mdns.c mdns_external.c common.c rtp.c player.c alac.c audio.c loudness.c
 
-AM_CFLAGS = -Wno-multichar -Wall -Wextra -Wno-clobbered -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
+AM_CFLAGS = -Wno-multichar -Wall -Wextra -Wno-clobbered -Wno-psabi -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
 if BUILD_FOR_FREEBSD
-  AM_CPPFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -Wno-clobbered -DSYSCONFDIR=\"$(sysconfdir)\" -O2
+  AM_CXXFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -Wno-clobbered -Wno-psabi -pthread -DSYSCONFDIR=\"$(sysconfdir)\" -O2
 else
 if BUILD_FOR_OPENBSD
-  AM_CPPFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -Wno-clobbered -DSYSCONFDIR=\"$(sysconfdir)\"
+  AM_CXXFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -Wno-clobbered -Wno-psabi -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
 else
-  AM_CPPFLAGS = -Wno-multichar -Wall -Wextra -Wno-clobbered -DSYSCONFDIR=\"$(sysconfdir)\"
+  AM_CXXFLAGS = -Wno-multichar -Wall -Wextra -Wno-clobbered -Wno-psabi -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
 endif
 endif
 
@@ -68,7 +68,7 @@ endif
 
 if USE_CONVOLUTION
 shairport_sync_SOURCES += FFTConvolver/AudioFFT.cpp FFTConvolver/FFTConvolver.cpp FFTConvolver/Utilities.cpp FFTConvolver/convolver.cpp
-AM_CXXFLAGS = -std=c++11
+AM_CXXFLAGS += -std=c++11
 endif
 
 if USE_DNS_SD
