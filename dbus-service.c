@@ -404,6 +404,19 @@ gboolean notify_loudness_threshold_callback(ShairportSync *skeleton,
   return TRUE;
 }
 
+gboolean notify_drift_tolerance_callback(ShairportSync *skeleton,
+                                            __attribute__((unused)) gpointer user_data) {
+  gdouble dt = shairport_sync_get_drift_tolerance(skeleton);
+  if ((dt >= 0.0) && (dt <= 2.0)) {
+    debug(1, "Setting drift tolerance to %f.", dt);
+    config.tolerance = dt;
+  } else {
+    debug(1, "Invalid drift tolerance: %f. Ignored.", dt);
+    shairport_sync_set_drift_tolerance(skeleton, config.tolerance);
+  }
+  return TRUE;
+}
+
 gboolean notify_alacdecoder_callback(ShairportSync *skeleton,
                                      __attribute__((unused)) gpointer user_data) {
   char *th = (char *)shairport_sync_get_alacdecoder(skeleton);
@@ -602,6 +615,8 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(notify_loudness_filter_active_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::loudness-threshold",
                    G_CALLBACK(notify_loudness_threshold_callback), NULL);
+  g_signal_connect(shairportSyncSkeleton, "notify::drift-tolerance",
+                   G_CALLBACK(notify_drift_tolerance_callback), NULL);
 
   g_signal_connect(shairportSyncSkeleton, "handle-quit", G_CALLBACK(on_handle_quit), NULL);
 
@@ -660,6 +675,8 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 
   shairport_sync_set_loudness_threshold(SHAIRPORT_SYNC(shairportSyncSkeleton),
                                         config.loudness_reference_volume_db);
+  shairport_sync_set_drift_tolerance(SHAIRPORT_SYNC(shairportSyncSkeleton),
+                                        config.tolerance);
 
 #ifdef HAVE_APPLE_ALAC
   if (config.use_apple_decoder == 0) {
