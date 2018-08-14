@@ -100,7 +100,7 @@ typedef struct {
   // for holding input rate information until printed out at the end of a session
   
   double input_frame_rate;
-  int input_frame_rate_status;
+  int input_frame_rate_starting_point_is_valid;
   
   uint64_t frames_inward_measurement_start_time;
   uint64_t frames_inward_frames_received_at_measurement_start_time;
@@ -190,6 +190,7 @@ typedef struct {
   int64_t reference_timestamp;
   uint64_t remote_reference_timestamp_time;  
 
+  int packet_stream_established; // true if a stream of packets is flowing, made true by a first packet, false by a flush
   
   // used as the initials values for calculating the rate at which the source thinks it's sending frames
   int64_t initial_reference_timestamp;

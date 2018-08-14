@@ -492,9 +492,11 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, int64_t timestamp
 
     if ((conn->flush_rtp_timestamp != 0) && (ltimestamp <= conn->flush_rtp_timestamp)) {
       debug(3,
-            "Dropping flushed packet in player_put_packet, seqno %u, timestamp %lld, flushing to "
-            "timestamp: %lld.",
-            seqno, ltimestamp, conn->flush_rtp_timestamp);      
+            "Dropping flushed packet in player_put_packet, seqno %u, timestamp %" PRId64 ", flushing to "
+            "timestamp: %" PRId64 ".",
+            seqno, ltimestamp, conn->flush_rtp_timestamp);
+      conn->initial_reference_time = 0;   
+      conn->initial_reference_timestamp = 0;            
     } else {
       if ((conn->flush_rtp_timestamp != 0x0) &&
           (ltimestamp > conn->flush_rtp_timestamp)) // if we have gone past the flush boundary time
@@ -525,12 +527,13 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, int64_t timestamp
 
       if (conn->ab_write == seqno) { // expected packet
         uint64_t reception_time = get_absolute_time_in_fp();
-        
-        if ((conn->packet_count_since_flush>=500) && (conn->packet_count_since_flush<=510)) {
-          conn->frames_inward_measurement_start_time = reception_time;
-          conn->frames_inward_frames_received_at_measurement_start_time = timestamp;
-          conn->input_frame_rate_status = 1; // valid now
-          // debug(1,"frames_inward_measurement_start_time set");
+        if (conn->input_frame_rate_starting_point_is_valid == 0) {
+          if ((conn->packet_count_since_flush>=500) && (conn->packet_count_since_flush<=510)) {
+            conn->frames_inward_measurement_start_time = reception_time;
+            conn->frames_inward_frames_received_at_measurement_start_time = timestamp;
+            conn->input_frame_rate_starting_point_is_valid = 1; // valid now
+            debug(1,"input_frame_rate_starting_point_is_valid set");
+          }
         }
 
         conn->frames_inward_measurement_time = reception_time;
@@ -876,12 +879,14 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
           if ((conn->flush_rtp_timestamp != 0) &&
               (curframe->timestamp <= conn->flush_rtp_timestamp)) {
-            debug(1, "Dropping flushed packet seqno %u, timestamp %lld", curframe->sequence_number,
+            debug(2, "Dropping flushed packet in buffer_get_frame seqno %u, timestamp %" PRId64 ".", curframe->sequence_number,
                   curframe->timestamp);
             curframe->ready = 0;
             curframe->resend_level = 0;
             flush_limit++;
             conn->ab_read = SUCCESSOR(conn->ab_read);
+            conn->initial_reference_time = 0;
+            conn->initial_reference_timestamp = 0;
           }
           if (curframe->timestamp > conn->flush_rtp_timestamp)
             conn->flush_rtp_timestamp = 0;
@@ -916,7 +921,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                   curframe->timestamp; // we will keep buffering until we are
                                        // supposed to start playing this
               have_sent_prefiller_silence = 0;
-
+              conn->packet_stream_established = 1;
+              
 // debug(1, "First packet timestamp is %" PRId64 ".", conn->first_packet_timestamp);
 
 // say we have started playing here
@@ -1661,7 +1667,7 @@ void *player_thread_func(void *arg) {
   conn->frame_rate_status = 0;
 
   conn->input_frame_rate = 0.0;
-  conn->input_frame_rate_status = 0;
+  conn->input_frame_rate_starting_point_is_valid = 0;
 
   conn->buffer_occupancy = 0;
 
@@ -2366,13 +2372,15 @@ void *player_thread_func(void *arg) {
           // here, calculate the input and output frame rates, where possible, even if statistics have not been requested
           // this is to calculate them in case they are needed by the D-Bus interface or elsewhere.
           
-          if (conn->input_frame_rate_status) {
+          if (conn->input_frame_rate_starting_point_is_valid) {
             uint64_t elapsed_reception_time, frames_received;
             elapsed_reception_time = conn->frames_inward_measurement_time - conn->frames_inward_measurement_start_time;
             frames_received = conn->frames_inward_frames_received_at_measurement_time - conn->frames_inward_frames_received_at_measurement_start_time;
             conn->input_frame_rate = (1.0 * frames_received) / elapsed_reception_time; // an IEEE double calculation with two 64-bit integers
             conn->input_frame_rate = conn->input_frame_rate * (uint64_t)0x100000000; // this should just change the [binary] exponent in the IEEE FP representation; the mantissa should be unaffected.
-          }          
+          } else {
+            conn->input_frame_rate = 0.0;
+          }       
           
           if ((config.output->delay) && (config.no_sync == 0) && (config.output->rate_info)) {
             uint64_t elapsed_play_time, frames_played;
@@ -2732,6 +2740,10 @@ void do_flush(int64_t timestamp, rtsp_conn_info *conn) {
   // conn->play_segment_reference_frame = 0;
   conn->play_number_after_flush = 0;
   conn->packet_count_since_flush = 0;
+  conn->packet_stream_established = 0;
+  conn->input_frame_rate_starting_point_is_valid = 0;
+  conn->initial_reference_time = 0;
+  conn->initial_reference_timestamp = 0;
   
   debug_mutex_unlock(&conn->flush_mutex, 3);
 

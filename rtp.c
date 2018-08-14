@@ -357,15 +357,19 @@ void *rtp_control_receiver(void *arg) {
 
             debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);
             
-            if (conn->initial_reference_time==0) {
-              conn->initial_reference_time = remote_time_of_sync;
-              conn->initial_reference_timestamp = sync_rtp_timestamp;
-            } else {
-              uint64_t remote_frame_time_interval = conn->remote_reference_timestamp_time - conn->initial_reference_time; // here, this should never be zero
-              if (remote_frame_time_interval) {
-                conn->remote_frame_rate = (1.0 * (conn->reference_timestamp - conn->initial_reference_timestamp)) / remote_frame_time_interval; // an IEEE double calculation with two 64-bit integers
-                conn->remote_frame_rate = conn->remote_frame_rate * (uint64_t)0x100000000; // this should just change the [binary] exponent in the IEEE FP representation; the mantissa should be unaffected.
-              }            
+            if (conn->packet_stream_established) {
+              if (conn->initial_reference_time==0) {
+                conn->initial_reference_time = remote_time_of_sync;
+                conn->initial_reference_timestamp = sync_rtp_timestamp;
+              } else {
+                uint64_t remote_frame_time_interval = conn->remote_reference_timestamp_time - conn->initial_reference_time; // here, this should never be zero
+                if (remote_frame_time_interval) {
+                  conn->remote_frame_rate = (1.0 * (conn->reference_timestamp - conn->initial_reference_timestamp)) / remote_frame_time_interval; // an IEEE double calculation with two 64-bit integers
+                  conn->remote_frame_rate = conn->remote_frame_rate * (uint64_t)0x100000000; // this should just change the [binary] exponent in the IEEE FP representation; the mantissa should be unaffected.
+                } else {
+                  conn->remote_frame_rate = 0.0; // use as a flag.
+                }          
+              }
             }
 
             // this is for debugging
@@ -987,24 +991,27 @@ int have_timestamp_timing_information(rtsp_conn_info *conn) {
 }
 
 // set this to zero to use the rates supplied by the sources, which might not always be completely right...
-const int use_nominal_rate = 1; // specify whether to use the nominal input rate, usually 44100 fps 
+const int use_nominal_rate = 0; // specify whether to use the nominal input rate, usually 44100 fps 
 
 int sanitised_source_rate_information(int64_t *frames, uint64_t *time, rtsp_conn_info *conn) {
-  int result = 0;
+  int result = 1;
   *frames = conn->input_rate; 
   *time = (uint64_t)(0x100000000); // one second in fp form
-  int64_t local_frames = conn->reference_to_previous_frame_difference;
-  uint64_t local_time = conn->reference_to_previous_time_difference;
-  if ((local_frames == 0) || (local_time == 0) || (use_nominal_rate)) {
-    result = 1;
-  } else {
-    double calculated_frame_rate = ((1.0*local_frames)/local_time)*(uint64_t)0x100000000;
-    if (((calculated_frame_rate/conn->input_rate) > 1.001) || ((calculated_frame_rate/conn->input_rate) < 0.999)) {
+  if ((conn->packet_stream_established) && (conn->initial_reference_time) && (conn->initial_reference_timestamp)) {
+    int64_t local_frames = conn->reference_timestamp - conn->initial_reference_timestamp;
+    uint64_t local_time = conn->remote_reference_timestamp_time - conn->initial_reference_time;
+    if ((local_frames == 0) || (local_time == 0) || (use_nominal_rate)) {
       result = 1;
     } else {
-      *frames = local_frames;
-      *time = local_time;
-      result = 0;
+      double calculated_frame_rate = ((1.0*local_frames)/local_time)*(uint64_t)0x100000000;
+      if (((calculated_frame_rate/conn->input_rate) > 1.001) || ((calculated_frame_rate/conn->input_rate) < 0.999)) {
+        debug(1,"input frame rate out of bounds at %.2f fps.",calculated_frame_rate);
+        result = 1;
+      } else {
+        *frames = local_frames;
+        *time = local_time;
+        result = 0;
+      }
     }
   }
   return result;
