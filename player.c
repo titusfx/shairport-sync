@@ -491,12 +491,12 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, int64_t timestamp
     //    	debug(1,"Flush_rtp_timestamp is %u",flush_rtp_timestamp);
 
     if ((conn->flush_rtp_timestamp != 0) && (ltimestamp <= conn->flush_rtp_timestamp)) {
-      debug(3,
-            "Dropping flushed packet in player_put_packet, seqno %u, timestamp %" PRId64 ", flushing to "
-            "timestamp: %" PRId64 ".",
+      debug(3, "Dropping flushed packet in player_put_packet, seqno %u, timestamp %" PRId64
+               ", flushing to "
+               "timestamp: %" PRId64 ".",
             seqno, ltimestamp, conn->flush_rtp_timestamp);
-      conn->initial_reference_time = 0;   
-      conn->initial_reference_timestamp = 0;            
+      conn->initial_reference_time = 0;
+      conn->initial_reference_timestamp = 0;
     } else {
       if ((conn->flush_rtp_timestamp != 0x0) &&
           (ltimestamp > conn->flush_rtp_timestamp)) // if we have gone past the flush boundary time
@@ -528,17 +528,17 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, int64_t timestamp
       if (conn->ab_write == seqno) { // expected packet
         uint64_t reception_time = get_absolute_time_in_fp();
         if (conn->input_frame_rate_starting_point_is_valid == 0) {
-          if ((conn->packet_count_since_flush>=500) && (conn->packet_count_since_flush<=510)) {
+          if ((conn->packet_count_since_flush >= 500) && (conn->packet_count_since_flush <= 510)) {
             conn->frames_inward_measurement_start_time = reception_time;
             conn->frames_inward_frames_received_at_measurement_start_time = timestamp;
             conn->input_frame_rate_starting_point_is_valid = 1; // valid now
-            debug(1,"input_frame_rate_starting_point_is_valid set");
+            debug(1, "input_frame_rate_starting_point_is_valid set");
           }
         }
 
         conn->frames_inward_measurement_time = reception_time;
         conn->frames_inward_frames_received_at_measurement_time = timestamp;
-                
+
         abuf = conn->audio_buffer + BUFIDX(seqno);
         conn->ab_write = SUCCESSOR(seqno);
       } else if (seq_order(conn->ab_write, seqno, conn->ab_read)) { // newer than expected
@@ -879,8 +879,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
           if ((conn->flush_rtp_timestamp != 0) &&
               (curframe->timestamp <= conn->flush_rtp_timestamp)) {
-            debug(2, "Dropping flushed packet in buffer_get_frame seqno %u, timestamp %" PRId64 ".", curframe->sequence_number,
-                  curframe->timestamp);
+            debug(2, "Dropping flushed packet in buffer_get_frame seqno %u, timestamp %" PRId64 ".",
+                  curframe->sequence_number, curframe->timestamp);
             curframe->ready = 0;
             curframe->resend_level = 0;
             flush_limit++;
@@ -922,7 +922,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                                        // supposed to start playing this
               have_sent_prefiller_silence = 0;
               conn->packet_stream_established = 1;
-              
+
 // debug(1, "First packet timestamp is %" PRId64 ".", conn->first_packet_timestamp);
 
 // say we have started playing here
@@ -956,9 +956,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               // -4410 frames.
 
               // debug(1, "Output sample ratio is %d", conn->output_sample_ratio);
-              
-              
-              // what we are asking for here is "what is the local time at which time the calculated frame should be played"
+
+              // what we are asking for here is "what is the local time at which time the calculated
+              // frame should be played"
 
               int64_t delta = (conn->first_packet_timestamp - reference_timestamp) +
                               conn->latency * conn->output_sample_ratio +
@@ -972,22 +972,31 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                 int64_t abs_delta = -delta;
                 int64_t delta_fp_sec =
                     (abs_delta << 32) / config.output_rate; // int64_t which is positive
-                conn->first_packet_time_to_play = reference_timestamp_time - delta_fp_sec;                
+                conn->first_packet_time_to_play = reference_timestamp_time - delta_fp_sec;
               }
 
               uint64_t should_be_time;
-              frame_to_local_time(conn->first_packet_timestamp +conn->latency * conn->output_sample_ratio + (int64_t)(config.audio_backend_latency_offset * config.output_rate),&should_be_time,conn);
-             
-              if(should_be_time>=conn->first_packet_time_to_play) {
-                if ((((should_be_time-conn->first_packet_time_to_play)*1000000)>>32)>10)
-                  debug(2,"New time for first packet timestamp %" PRId64 " is later than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((should_be_time-conn->first_packet_time_to_play)*1000000)>>32);
+              frame_to_local_time(
+                  conn->first_packet_timestamp + conn->latency * conn->output_sample_ratio +
+                      (int64_t)(config.audio_backend_latency_offset * config.output_rate),
+                  &should_be_time, conn);
+
+              if (should_be_time >= conn->first_packet_time_to_play) {
+                if ((((should_be_time - conn->first_packet_time_to_play) * 1000000) >> 32) > 10)
+                  debug(2, "New time for first packet timestamp %" PRId64
+                           " is later than calculated time by %" PRId64 " microseconds.",
+                        curframe->timestamp,
+                        ((should_be_time - conn->first_packet_time_to_play) * 1000000) >> 32);
               } else {
-                if ((((conn->first_packet_time_to_play-should_be_time)*1000000)>>32)>10)
-                  debug(2,"New time for first packet timestamp %" PRId64 " is earlier than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((conn->first_packet_time_to_play-should_be_time)*1000000)>>32);          
-              } 
-              
+                if ((((conn->first_packet_time_to_play - should_be_time) * 1000000) >> 32) > 10)
+                  debug(2, "New time for first packet timestamp %" PRId64
+                           " is earlier than calculated time by %" PRId64 " microseconds.",
+                        curframe->timestamp,
+                        ((conn->first_packet_time_to_play - should_be_time) * 1000000) >> 32);
+              }
+
               // cut over to new calculation scheme
-              conn->first_packet_time_to_play = should_be_time;             
+              conn->first_packet_time_to_play = should_be_time;
 
               if (local_time_now >= conn->first_packet_time_to_play) {
                 debug(
@@ -1015,19 +1024,26 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                   (abs_delta << 32) / config.output_rate; // int64_t which is positive
               conn->first_packet_time_to_play = reference_timestamp_time - delta_fp_sec;
             }
-            
+
             uint64_t should_be_time;
-            frame_to_local_time(conn->first_packet_timestamp +conn->latency * conn->output_sample_ratio + (int64_t)(config.audio_backend_latency_offset * config.output_rate),&should_be_time,conn);
-           
-            if(should_be_time>=conn->first_packet_time_to_play) {
-              if ((((should_be_time-conn->first_packet_time_to_play)*1000000)>>32)>50)
-                debug(2,"New time for recalculated first packet timestamp %" PRId64 " is later than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((should_be_time-conn->first_packet_time_to_play)*1000000)>>32);
+            frame_to_local_time(
+                conn->first_packet_timestamp + conn->latency * conn->output_sample_ratio +
+                    (int64_t)(config.audio_backend_latency_offset * config.output_rate),
+                &should_be_time, conn);
+
+            if (should_be_time >= conn->first_packet_time_to_play) {
+              if ((((should_be_time - conn->first_packet_time_to_play) * 1000000) >> 32) > 50)
+                debug(2, "New time for recalculated first packet timestamp %" PRId64
+                         " is later than calculated time by %" PRId64 " microseconds.",
+                      curframe->timestamp,
+                      ((should_be_time - conn->first_packet_time_to_play) * 1000000) >> 32);
             } else {
-              if ((((conn->first_packet_time_to_play-should_be_time)*1000000)>>32)>50)
-                debug(2,"New time for recalculated first packet timestamp %" PRId64 " is earlier than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((conn->first_packet_time_to_play-should_be_time)*1000000)>>32);          
-            }                  
-
-
+              if ((((conn->first_packet_time_to_play - should_be_time) * 1000000) >> 32) > 50)
+                debug(2, "New time for recalculated first packet timestamp %" PRId64
+                         " is earlier than calculated time by %" PRId64 " microseconds.",
+                      curframe->timestamp,
+                      ((conn->first_packet_time_to_play - should_be_time) * 1000000) >> 32);
+            }
 
             // now, the size of the initial silence must be affected by the lead-in time.
             // it must be somewhat less than the lead-in time so that dynamic adjustments can be
@@ -1175,14 +1191,14 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             }
           }
           if (conn->ab_buffering == 0) {
-          /*
-            // note the time of the playing of the first frame
-            uint64_t reference_timestamp_time; // don't need this...
-            get_reference_timestamp_stuff(&conn->play_segment_reference_frame,
-                                          &reference_timestamp_time,
-                                          &conn->play_segment_reference_frame_remote_time, conn);
-            conn->play_segment_reference_frame *= conn->output_sample_ratio;
-          */
+/*
+  // note the time of the playing of the first frame
+  uint64_t reference_timestamp_time; // don't need this...
+  get_reference_timestamp_stuff(&conn->play_segment_reference_frame,
+                                &reference_timestamp_time,
+                                &conn->play_segment_reference_frame_remote_time, conn);
+  conn->play_segment_reference_frame *= conn->output_sample_ratio;
+*/
 #ifdef CONFIG_METADATA
             debug(2, "prsm");
             send_ssnc_metadata('prsm', NULL, 0,
@@ -1209,14 +1225,14 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     if ((conn->ab_synced) && (curframe) && (curframe->ready) && (curframe->timestamp)) {
       do_wait =
           1; // if the current frame exists and is ready, then wait unless it's time to let it go...
-      
+
       // here, get the time to play the current frame.
       int64_t reference_timestamp;
       uint64_t reference_timestamp_time, remote_reference_timestamp_time;
       get_reference_timestamp_stuff(&reference_timestamp, &reference_timestamp_time,
                                     &remote_reference_timestamp_time, conn); // all types okay
       reference_timestamp *= conn->output_sample_ratio;
-      if (have_timestamp_timing_information(conn)) {                        // if we have a reference time
+      if (have_timestamp_timing_information(conn)) {    // if we have a reference time
         int64_t packet_timestamp = curframe->timestamp; // types okay
         int64_t delta = packet_timestamp - reference_timestamp;
         int64_t offset =
@@ -1224,8 +1240,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             (int64_t)(config.audio_backend_latency_offset * config.output_rate) -
             config.audio_backend_buffer_desired_length *
                 config.output_rate; // all arguments are int32_t, so expression promotion okay
-        int64_t net_offset = delta + offset;              // okay
-                
+        int64_t net_offset = delta + offset; // okay
+
         uint64_t time_to_play = reference_timestamp_time; // type okay
         if (net_offset >= 0) {
           uint64_t net_offset_fp_sec =
@@ -1239,20 +1255,24 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
           time_to_play -= net_offset_fp_sec;
           // debug(2,"Net Offset: %lld, adjusted: -%lld.",net_offset,net_offset_fp_sec);
         }
-        
+
         uint64_t new_time_to_play = 0;
-        frame_to_local_time(packet_timestamp+offset, &new_time_to_play, conn);
-        
-        if(new_time_to_play>=time_to_play) {
-          if ((((new_time_to_play-time_to_play)*1000000)>>32)>100)
-            debug(2,"New time for frame %" PRId64 " is later than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((new_time_to_play-time_to_play)*1000000)>>32);
+        frame_to_local_time(packet_timestamp + offset, &new_time_to_play, conn);
+
+        if (new_time_to_play >= time_to_play) {
+          if ((((new_time_to_play - time_to_play) * 1000000) >> 32) > 100)
+            debug(2, "New time for frame %" PRId64 " is later than calculated time by %" PRId64
+                     " microseconds.",
+                  curframe->timestamp, ((new_time_to_play - time_to_play) * 1000000) >> 32);
         } else {
-          if ((((time_to_play-new_time_to_play)*1000000)>>32)>100)
-            debug(2,"New time for frame %" PRId64 " is earlier than calculated time by %" PRId64 " microseconds.",curframe->timestamp,((time_to_play-new_time_to_play)*1000000)>>32);          
-        } 
+          if ((((time_to_play - new_time_to_play) * 1000000) >> 32) > 100)
+            debug(2, "New time for frame %" PRId64 " is earlier than calculated time by %" PRId64
+                     " microseconds.",
+                  curframe->timestamp, ((time_to_play - new_time_to_play) * 1000000) >> 32);
+        }
         // cut over to the new calculation system
-        time_to_play = new_time_to_play; 
-         
+        time_to_play = new_time_to_play;
+
         if (local_time_now >= time_to_play) {
           do_wait = 0;
         }
@@ -1499,11 +1519,12 @@ void player_thread_cleanup_handler(void *arg) {
     int elapsedMin = (rawSeconds / 60) % 60;
     int elapsedSec = rawSeconds % 60;
     if (conn->frame_rate_status)
-      inform("Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f, output: %0.2f frames per second.",
+      inform("Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f, output: %0.2f "
+             "frames per second.",
              elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate, conn->frame_rate);
     else
-      inform("Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f frames per second.", elapsedHours, elapsedMin,
-             elapsedSec, conn->input_frame_rate);
+      inform("Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f frames per second.",
+             elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate);
   }
 
 #ifdef HAVE_DACP_CLIENT
@@ -1992,9 +2013,11 @@ void *player_thread_func(void *arg) {
           // uint64_t
           // local_time_now=((uint64_t)tn.tv_sec<<32)+((uint64_t)tn.tv_nsec<<32)/1000000000;
 
-          int64_t td = 0; // td is the time difference between the reference timestamp time and the present time. Only used to calculate td_in_frames
-          int64_t td_in_frames = 0; // td_in_frames is the number of frames between between the reference timestamp time and the present time
-          
+          int64_t td = 0; // td is the time difference between the reference timestamp time and the
+                          // present time. Only used to calculate td_in_frames
+          int64_t td_in_frames = 0; // td_in_frames is the number of frames between between the
+                                    // reference timestamp time and the present time
+
           if (local_time_now >= reference_timestamp_time) {
             td = local_time_now - reference_timestamp_time; // this is the positive value.
                                                             // Conversion is positive uint64_t to
@@ -2069,20 +2092,20 @@ void *player_thread_func(void *arg) {
 
           if (resp >= 0) {
 
-            int64_t should_be_frame;            
-            local_time_to_frame(local_time_now,&should_be_frame,conn);
-            
-            if (abs(td_in_frames + rt-should_be_frame)>10*conn->output_sample_ratio)
-              debug(1,"Difference between old and new frame number is %" PRId64 " frames.",td_in_frames + rt - should_be_frame);
+            int64_t should_be_frame;
+            local_time_to_frame(local_time_now, &should_be_frame, conn);
+
+            if (abs(td_in_frames + rt - should_be_frame) > 10 * conn->output_sample_ratio)
+              debug(1, "Difference between old and new frame number is %" PRId64 " frames.",
+                    td_in_frames + rt - should_be_frame);
             // this is the actual delay, including the latency we actually want, which will
             // fluctuate a good bit about a potentially rising or falling trend.
 
-//            int64_t delay = td_in_frames + rt - (nt - current_delay); // all int64_t
+            //            int64_t delay = td_in_frames + rt - (nt - current_delay); // all int64_t
             // cut over to the new calculation method
             int64_t delay = should_be_frame - (nt - current_delay); // all int64_t
-            
+
             // td_in_frames + rt is the frame number that should be output at local_time_now.
-            
 
             // This is the timing error for the next audio frame in the DAC.
 
@@ -2368,36 +2391,47 @@ void *player_thread_func(void *arg) {
           }
         }
         if (play_number % print_interval == 0) {
-          
-          // here, calculate the input and output frame rates, where possible, even if statistics have not been requested
+
+          // here, calculate the input and output frame rates, where possible, even if statistics
+          // have not been requested
           // this is to calculate them in case they are needed by the D-Bus interface or elsewhere.
-          
+
           if (conn->input_frame_rate_starting_point_is_valid) {
             uint64_t elapsed_reception_time, frames_received;
-            elapsed_reception_time = conn->frames_inward_measurement_time - conn->frames_inward_measurement_start_time;
-            frames_received = conn->frames_inward_frames_received_at_measurement_time - conn->frames_inward_frames_received_at_measurement_start_time;
-            conn->input_frame_rate = (1.0 * frames_received) / elapsed_reception_time; // an IEEE double calculation with two 64-bit integers
-            conn->input_frame_rate = conn->input_frame_rate * (uint64_t)0x100000000; // this should just change the [binary] exponent in the IEEE FP representation; the mantissa should be unaffected.
+            elapsed_reception_time =
+                conn->frames_inward_measurement_time - conn->frames_inward_measurement_start_time;
+            frames_received = conn->frames_inward_frames_received_at_measurement_time -
+                              conn->frames_inward_frames_received_at_measurement_start_time;
+            conn->input_frame_rate =
+                (1.0 * frames_received) /
+                elapsed_reception_time; // an IEEE double calculation with two 64-bit integers
+            conn->input_frame_rate =
+                conn->input_frame_rate * (uint64_t)0x100000000; // this should just change the
+                                                                // [binary] exponent in the IEEE FP
+                                                                // representation; the mantissa
+                                                                // should be unaffected.
           } else {
             conn->input_frame_rate = 0.0;
-          }       
-          
+          }
+
           if ((config.output->delay) && (config.no_sync == 0) && (config.output->rate_info)) {
             uint64_t elapsed_play_time, frames_played;
-            if (config.output->rate_info(&elapsed_play_time, &frames_played)==0)
+            if (config.output->rate_info(&elapsed_play_time, &frames_played) == 0)
               conn->frame_rate_status = 1;
             else
-              conn->frame_rate_status = 0; 
-            if (conn->frame_rate_status) {         
+              conn->frame_rate_status = 0;
+            if (conn->frame_rate_status) {
               conn->frame_rate =
-                  (1.0 * frames_played) / elapsed_play_time; // an IEEE double calculation with two 64-bit integers
-              conn->frame_rate =
-                  conn->frame_rate * (uint64_t)0x100000000; // this should just change the [binary] exponent in the IEEE FP representation; the mantissa should be unaffected.
+                  (1.0 * frames_played) /
+                  elapsed_play_time; // an IEEE double calculation with two 64-bit integers
+              conn->frame_rate = conn->frame_rate *
+                                 (uint64_t)0x100000000; // this should just change the [binary]
+                                                        // exponent in the IEEE FP representation;
+                                                        // the mantissa should be unaffected.
             } else {
               conn->frame_rate = 0.0;
             }
-          }                
-          
+          }
 
           // we can now calculate running averages for sync error (frames), corrections (ppm),
           // insertions plus deletions (ppm), drift (ppm)
@@ -2409,7 +2443,7 @@ void *player_thread_func(void *arg) {
           // if ((play_number/print_interval)%20==0)
           if (config.statistics_requested) {
             if (at_least_one_frame_seen) {
-            
+
               if ((config.output->delay)) {
                 if (config.no_sync == 0) {
                   inform("%*.2f," /* Sync error in milliseconds */
@@ -2436,12 +2470,10 @@ void *player_thread_func(void *arg) {
                          12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
                          conn->too_late_packets, 7, conn->resend_requests, 7,
                          minimum_dac_queue_size, 5, minimum_buffer_occupancy, 5,
-                         maximum_buffer_occupancy,
-                         11, conn->remote_frame_rate,
-                         11, conn->input_frame_rate,
-                         11, conn->frame_rate ,
-                         10, (1.0-conn->local_to_remote_time_gradient)*1000000,
-                         6, conn->local_to_remote_time_gradient_sample_count);
+                         maximum_buffer_occupancy, 11, conn->remote_frame_rate, 11,
+                         conn->input_frame_rate, 11, conn->frame_rate, 10,
+                         (1.0 - conn->local_to_remote_time_gradient) * 1000000, 6,
+                         conn->local_to_remote_time_gradient_sample_count);
                 } else {
                   inform("%*.2f," /* Sync error in milliseconds */
                          "%*d,"   /* total packets */
@@ -2457,7 +2489,8 @@ void *player_thread_func(void *arg) {
                          1000 * moving_average_sync_error / config.output_rate, 12, play_number, 7,
                          conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets, 7,
                          conn->resend_requests, 7, minimum_dac_queue_size, 5,
-                         minimum_buffer_occupancy, 5, maximum_buffer_occupancy, 11, conn->input_frame_rate);
+                         minimum_buffer_occupancy, 5, maximum_buffer_occupancy, 11,
+                         conn->input_frame_rate);
                 }
               } else {
                 inform("%*.2f," /* Sync error in milliseconds */
@@ -2744,7 +2777,7 @@ void do_flush(int64_t timestamp, rtsp_conn_info *conn) {
   conn->input_frame_rate_starting_point_is_valid = 0;
   conn->initial_reference_time = 0;
   conn->initial_reference_timestamp = 0;
-  
+
   debug_mutex_unlock(&conn->flush_mutex, 3);
 
 #ifdef CONFIG_METADATA

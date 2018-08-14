@@ -24,7 +24,7 @@
 #include "alac.h"
 #include "audio.h"
 
-#define time_ping_history 64  // at 1 per three seconds, approximately three minutes of records
+#define time_ping_history 64 // at 1 per three seconds, approximately three minutes of records
 
 typedef struct time_ping_record {
   uint64_t local_to_remote_difference;
@@ -96,12 +96,12 @@ typedef struct {
   // for holding the output rate information until printed out at the end of a session
   double frame_rate;
   int frame_rate_status;
-  
+
   // for holding input rate information until printed out at the end of a session
-  
+
   double input_frame_rate;
   int input_frame_rate_starting_point_is_valid;
-  
+
   uint64_t frames_inward_measurement_start_time;
   uint64_t frames_inward_frames_received_at_measurement_start_time;
 
@@ -188,11 +188,13 @@ typedef struct {
   // this is what connects an rtp timestamp to the remote time
 
   int64_t reference_timestamp;
-  uint64_t remote_reference_timestamp_time;  
+  uint64_t remote_reference_timestamp_time;
 
-  int packet_stream_established; // true if a stream of packets is flowing, made true by a first packet, false by a flush
-  
-  // used as the initials values for calculating the rate at which the source thinks it's sending frames
+  int packet_stream_established; // true if a stream of packets is flowing, made true by a first
+                                 // packet, false by a flush
+
+  // used as the initials values for calculating the rate at which the source thinks it's sending
+  // frames
   int64_t initial_reference_timestamp;
   uint64_t initial_reference_time;
   double remote_frame_rate;
@@ -200,7 +202,7 @@ typedef struct {
   // the ratio of the following should give us the operating rate, nominally 44,100
   int64_t reference_to_previous_frame_difference;
   uint64_t reference_to_previous_time_difference;
-  
+
   // debug variables
   int request_sent;
 
@@ -212,9 +214,11 @@ typedef struct {
 
   pthread_mutex_t reference_time_mutex;
 
-  double local_to_remote_time_gradient; // if no drift, this would be exactly 1.0; likely it's slightly above or  below.
-  int local_to_remote_time_gradient_sample_count; // the number of samples used to calculate the gradient
-  uint64_t local_to_remote_time_difference; // used to switch between local and remote clocks
+  double local_to_remote_time_gradient; // if no drift, this would be exactly 1.0; likely it's
+                                        // slightly above or  below.
+  int local_to_remote_time_gradient_sample_count; // the number of samples used to calculate the
+                                                  // gradient
+  uint64_t local_to_remote_time_difference;       // used to switch between local and remote clocks
   uint64_t local_to_remote_time_difference_measurement_time; // when the above was calculated
 
   int last_stuff_request;
