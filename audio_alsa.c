@@ -658,6 +658,26 @@ int open_alsa_device(void) {
          snd_strerror(ret));
     return -7;
   }
+  
+  // check parameters after attempting to set them…
+
+  if (set_period_size_request != 0) {
+    snd_pcm_uframes_t actual_period_size;
+    snd_pcm_hw_params_get_period_size(alsa_params, &actual_period_size, &dir);
+    if (actual_period_size != period_size_requested)
+      inform("Actual period size set to a different value than requested. Requested: %lu, actual "
+             "setting: %lu",
+             period_size_requested, actual_period_size);
+  }
+
+  if (set_buffer_size_request != 0) {
+    snd_pcm_uframes_t actual_buffer_size;
+    snd_pcm_hw_params_get_buffer_size(alsa_params, &actual_buffer_size);
+    if (actual_buffer_size != buffer_size_requested)
+      inform("Actual period size set to a different value than requested. Requested: %lu, actual "
+             "setting: %lu",
+             buffer_size_requested, actual_buffer_size);
+  }
 
   if (my_sample_rate != desired_sample_rate) {
     warn("Can't set the D/A converter to %d.", desired_sample_rate);
