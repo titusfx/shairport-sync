@@ -2190,11 +2190,11 @@ void *player_thread_func(void *arg) {
                 s = s * config.tolerance * config.output_rate;
                 s = (s>>32)+config.tolerance * config.output_rate; //should be a number from 0 to config.tolerance * config.output_rate;
                 if ((sync_error>0) && (sync_error>s)) {
-                  debug(1,"Extra stuff -1");
+                  //debug(1,"Extra stuff -1");
                   amount_to_stuff = -1;
                 }
                 if ((sync_error<0) && (sync_error<(-s))) {
-                  debug(1,"Extra stuff +1");
+                  //debug(1,"Extra stuff +1");
                   amount_to_stuff = 1;
                 }              
               }
