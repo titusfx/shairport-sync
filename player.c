@@ -2096,9 +2096,10 @@ void *player_thread_func(void *arg) {
             int64_t should_be_frame;
             local_time_to_frame(local_time_now, &should_be_frame, conn);
 
-            if (abs(td_in_frames + rt - should_be_frame) > 10 * conn->output_sample_ratio)
-              debug(1, "Difference between old and new frame number is %" PRId64 " frames.",
-                    td_in_frames + rt - should_be_frame);
+            //if (abs(td_in_frames + rt - should_be_frame) > 10 * conn->output_sample_ratio)
+            //  debug(1, "Difference between old and new frame number is %" PRId64 " frames.",
+            //        td_in_frames + rt - should_be_frame);
+            
             // this is the actual delay, including the latency we actually want, which will
             // fluctuate a good bit about a potentially rising or falling trend.
 
