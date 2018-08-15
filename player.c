@@ -1294,6 +1294,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       time_to_wait_for_wakeup_fp *= 4 * 352;      // four full 352-frame packets
       time_to_wait_for_wakeup_fp /= 3;            // four thirds of a packet time
 
+      time_to_wait_for_wakeup_fp = (uint64_t)0x200000000/(uint64_t)1000;            // two millisecond
+
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
       uint64_t time_of_wakeup_fp = local_time_now + time_to_wait_for_wakeup_fp;
       uint64_t sec = time_of_wakeup_fp >> 32;
@@ -2117,6 +2119,8 @@ void *player_thread_func(void *arg) {
                 delay - (conn->latency * conn->output_sample_ratio +
                          (int64_t)(config.audio_backend_latency_offset *
                                    config.output_rate)); // int64_t from int64_t - int32_t, so okay
+            
+            //debug(1,"%" PRId64 "",sync_error,inbuflength);
 
             // not too sure if abs() is implemented for int64_t, so we'll do it manually
             int64_t abs_sync_error = sync_error;
@@ -2167,8 +2171,8 @@ void *player_thread_func(void *arg) {
               }
             } else {
 
+              /*
               // before we finally commit to this frame, check its sequencing and timing
-
               // require a certain error before bothering to fix it...
               if (sync_error > config.tolerance * config.output_rate) { // int64_t > int, okay
                 amount_to_stuff = -1;
@@ -2176,13 +2180,25 @@ void *player_thread_func(void *arg) {
               if (sync_error < -config.tolerance * config.output_rate) {
                 amount_to_stuff = 1;
               }
-
-              // only allow stuffing if there is enough time to do it -- check DAC buffer...
-              if (current_delay < DAC_BUFFER_QUEUE_MINIMUM_LENGTH) {
-                // debug(2,"DAC buffer too short(at %lld frames) to allow stuffing.",current_delay);
-                amount_to_stuff = 0;
+              */
+              
+              
+              if (amount_to_stuff==0) {
+                // use a "V" shaped function to decide if stuffing should occur
+                int64_t s = r64i();
+                s = s>>31;
+                s = s * config.tolerance * config.output_rate;
+                s = (s>>32)+config.tolerance * config.output_rate; //should be a number from 0 to config.tolerance * config.output_rate;
+                if ((sync_error>0) && (sync_error>s)) {
+                  debug(1,"Extra stuff -1");
+                  amount_to_stuff = -1;
+                }
+                if ((sync_error<0) && (sync_error<(-s))) {
+                  debug(1,"Extra stuff +1");
+                  amount_to_stuff = 1;
+                }              
               }
-
+              
               // try to keep the corrections definitely below 1 in 1000 audio frames
 
               // calculate the time elapsed since the play session started.
@@ -2260,23 +2276,20 @@ void *player_thread_func(void *arg) {
                   tbuf32[2 * i + 1] = fbuf_r[i];
                 }
               }
-
-              switch (config.packet_stuffing) {
-              case ST_basic:
-                //                if (amount_to_stuff) debug(1,"Basic stuff...");
+              
+              if ((current_delay < DAC_BUFFER_QUEUE_MINIMUM_LENGTH) || (config.packet_stuffing == ST_basic)) {
                 play_samples =
                     stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
-                                          conn->outbuf, amount_to_stuff, enable_dither, conn);
-                break;
-              case ST_soxr:
+                                          conn->outbuf, amount_to_stuff, enable_dither, conn);              
+              }
 #ifdef HAVE_LIBSOXR
+                else if (config.packet_stuffing == ST_soxr) {
                 //                if (amount_to_stuff) debug(1,"Soxr stuff...");
                 play_samples = stuff_buffer_soxr_32((int32_t *)conn->tbuf, (int32_t *)conn->sbuf,
                                                     inbuflength, config.output_format, conn->outbuf,
                                                     amount_to_stuff, enable_dither, conn);
-#endif
-                break;
               }
+#endif
 
               /*
               {
