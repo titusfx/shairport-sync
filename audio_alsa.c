@@ -882,6 +882,8 @@ int delay(long *the_delay) {
         debug(1, "Error %d in delay(): \"%s\". Delay reported is %d frames.", reply,
               snd_strerror(reply), *the_delay);
         snd_pcm_recover(alsa_handle, reply, 1);
+        frame_index = 0;
+        measurement_data_is_valid = 0;
       }
     } else {
       frame_index = 0; // we'll be starting over...
@@ -980,20 +982,17 @@ static int play(void *buf, int samples) {
           long fl = 0;
           err2 = snd_pcm_delay(alsa_handle, &fl);
           if (err2 != 0) {
-            frame_index = 0;
-            measurement_data_is_valid = 0;
             debug(1, "Error %d in delay(): \"%s\". Delay reported is %d frames.", err2,
                   snd_strerror(err2), fl);
             snd_pcm_recover(alsa_handle, err2, 1);
+            frame_index = 0;
+            measurement_data_is_valid = 0;
           }
-          uint64_t tf = get_absolute_time_in_fp();
+          measurement_time = get_absolute_time_in_fp();
           frames_played_at_measurement_time = frames_sent_for_playing - fl;
           if (frame_index == start_measurement_from_this_frame) {
             frames_played_at_measurement_start_time = frames_played_at_measurement_time;
-            measurement_start_time = tf;
-          } else {
-            frames_played_at_measurement_time = frames_played_at_measurement_time;
-            measurement_time = tf;
+            measurement_start_time = measurement_time;
             measurement_data_is_valid = 1;
           }
         }
