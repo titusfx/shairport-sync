@@ -1050,7 +1050,7 @@ int sanitised_source_rate_information(int64_t *frames, uint64_t *time, rtsp_conn
       double calculated_frame_rate = ((1.0 * local_frames) / local_time) * (uint64_t)0x100000000;
       if (((calculated_frame_rate / conn->input_rate) > 1.001) ||
           ((calculated_frame_rate / conn->input_rate) < 0.999)) {
-        debug(1, "input frame rate out of bounds at %.2f fps.", calculated_frame_rate);
+        // debug(1, "input frame rate out of bounds at %.2f fps.", calculated_frame_rate);
         result = 1;
       } else {
         *frames = local_frames;
