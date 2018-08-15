@@ -532,7 +532,6 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, int64_t timestamp
             conn->frames_inward_measurement_start_time = reception_time;
             conn->frames_inward_frames_received_at_measurement_start_time = timestamp;
             conn->input_frame_rate_starting_point_is_valid = 1; // valid now
-            debug(1, "input_frame_rate_starting_point_is_valid set");
           }
         }
 
