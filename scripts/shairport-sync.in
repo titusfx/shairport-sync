@@ -47,19 +47,19 @@ do_start()
 {
 	# Return
 	#   0 if daemon has been started
-	#   1 if daemon was already running
-	#   2 if daemon could not be started
-        [ -e /var/run/shairport-sync ] || ( mkdir -p /var/run/shairport-sync && chown shairport-sync:shairport-sync /var/run/shairport-sync ) ; \
-	start-stop-daemon -c shairport-sync:shairport-sync --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
-		|| return 1
+	#   1 if PID directory didn't exist and couldn't be created with approproate permission
+	#   2 if daemon was already running
+	#   3 if daemon could not be started
+        [ -e /var/run/shairport-sync ] || ( mkdir -p /var/run/shairport-sync && chown shairport-sync:shairport-sync /var/run/shairport-sync ) || return 1
+	start-stop-daemon -c shairport-sync:shairport-sync --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null || return 2
 
 	# This script is set to start running after all other services have started.
 	# However, if you find that Shairport Sync is still being started before what it needs is ready,
 	# uncomment the next line to get the script to wait for three seconds before attempting to start Shairport Sync.
 	# sleep 3
 
-	# Shairport Sync reads settings from the configuration file (/etc/shairport-sync.conf by default) and will then apply any command line options.
-	start-stop-daemon -c shairport-sync:shairport-sync --start --quiet --pidfile $PIDFILE --exec $DAEMON -- -d || return 2
+	# Settings from the configuration file (@sysconfdir@/shairport-sync.conf by default)
+	start-stop-daemon -c shairport-sync:shairport-sync --start --quiet --pidfile $PIDFILE --exec $DAEMON -- -d || return 3
 }
 
 #
