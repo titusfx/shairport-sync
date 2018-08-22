@@ -24,7 +24,7 @@
 #include "alac.h"
 #include "audio.h"
 
-#define time_ping_history 64 // at 1 per three seconds, approximately three minutes of records
+#define time_ping_history 128 // at 1 per three seconds, approximately six minutes of records
 
 typedef struct time_ping_record {
   uint64_t local_to_remote_difference;

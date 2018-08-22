@@ -277,7 +277,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
             }
 
             if (http_iserror(&rt)) {
-              debug(1, "Error parsing data.");
+              debug(3, "Error parsing data.");
               free(response.body);
               response.body = NULL;
               response.malloced_size = 0;

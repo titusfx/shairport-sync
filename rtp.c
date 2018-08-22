@@ -765,41 +765,40 @@ void *rtp_timing_receiver(void *arg) {
                 x_bar += (conn->time_pings[cc].local_time >> 12);
                 sample_count++;
               }
-
-            y_bar = y_bar / sample_count;
-            x_bar = x_bar / sample_count;
-
-            int64_t xid, yid;
-            int64_t mtl, mbl;
-            mtl = 0;
-            mbl = 0;
-            for (cc = 0; cc < conn->time_ping_count; cc++)
-              if ((conn->time_pings[cc].chosen) &&
-                  (conn->time_pings[cc].sequence_number > (settling_time / 3))) {
-
-                uint64_t slt = conn->time_pings[cc].local_time >> 12;
-                if (slt > x_bar)
-                  xid = slt - x_bar;
-                else
-                  xid = -(x_bar - slt);
-
-                uint64_t srt = conn->time_pings[cc].remote_time >> 12;
-                if (srt > y_bar)
-                  yid = srt - y_bar;
-                else
-                  yid = -(y_bar - srt);
-
-                mtl = mtl + xid * yid;
-                mbl = mbl + xid * xid;
-              }
-            conn->local_to_remote_time_gradient_sample_count = sample_count;
             if (sample_count > sample_point_minimum) {
+              y_bar = y_bar / sample_count;
+              x_bar = x_bar / sample_count;
+
+              int64_t xid, yid;
+              int64_t mtl, mbl;
+              mtl = 0;
+              mbl = 0;
+              for (cc = 0; cc < conn->time_ping_count; cc++)
+                if ((conn->time_pings[cc].chosen) &&
+                    (conn->time_pings[cc].sequence_number > (settling_time / 3))) {
+
+                  uint64_t slt = conn->time_pings[cc].local_time >> 12;
+                  if (slt > x_bar)
+                    xid = slt - x_bar;
+                  else
+                    xid = -(x_bar - slt);
+
+                  uint64_t srt = conn->time_pings[cc].remote_time >> 12;
+                  if (srt > y_bar)
+                    yid = srt - y_bar;
+                  else
+                    yid = -(y_bar - srt);
+
+                  mtl = mtl + xid * yid;
+                  mbl = mbl + xid * xid;
+                }
+              conn->local_to_remote_time_gradient_sample_count = sample_count;
               conn->local_to_remote_time_gradient = (1.0 * mtl) / mbl;
-              // debug(1,"Drift is %12.2f ppm, based on %d
-              // samples.",(1.0-conn->local_to_remote_time_gradient)*1000000,sample_count);
             } else {
               conn->local_to_remote_time_gradient = 1.0;
             }
+            // debug(1,"local to remote time gradient is %12.2f ppm, based on %d
+            // samples.",conn->local_to_remote_time_gradient*1000000,sample_count);
           } else {
             debug(2, "Time ping turnaround time: %lld us -- it looks like a timing ping was lost.",
                   (return_time * 1000000) >> 32);

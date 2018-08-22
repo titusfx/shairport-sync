@@ -658,7 +658,7 @@ int open_alsa_device(void) {
          snd_strerror(ret));
     return -7;
   }
-  
+
   // check parameters after attempting to set them…
 
   if (set_period_size_request != 0) {
@@ -884,6 +884,12 @@ int delay(long *the_delay) {
         snd_pcm_recover(alsa_handle, reply, 1);
         frame_index = 0;
         measurement_data_is_valid = 0;
+      } else {
+        if (*the_delay == 0) {
+          // there's nothing in the pipeline, so we can't measure frame rate.
+          frame_index = 0; // we'll be starting over...
+          measurement_data_is_valid = 0;
+        }
       }
     } else {
       frame_index = 0; // we'll be starting over...
@@ -987,8 +993,15 @@ static int play(void *buf, int samples) {
             snd_pcm_recover(alsa_handle, err2, 1);
             frame_index = 0;
             measurement_data_is_valid = 0;
+          } else {
+            if (fl == 0) {
+              // there's nothing in the pipeline, so we can't measure frame rate.
+              frame_index = 0; // we'll be starting over...
+              measurement_data_is_valid = 0;
+            }
           }
-          measurement_time = get_absolute_time_in_fp();
+
+          uint64_t tf = get_absolute_time_in_fp();
           frames_played_at_measurement_time = frames_sent_for_playing - fl;
           if (frame_index == start_measurement_from_this_frame) {
             frames_played_at_measurement_start_time = frames_played_at_measurement_time;
