@@ -1,9 +1,10 @@
 Version 3.3d3
 ====
-Modify the code that synchronises the Shairport Sync system's clock with the source clock to try to take account of the sources's nominal rate, which (oddly, e.g. iTunes on a Mac) might not be exactly 44,100 fps. There may be a 32-bit unsigned overflow error here somewhere!
-Also try to interpolate for the measured drift between the standard three-second timing snapshots. These changes make a very slight difference from time to time, of the order of microseconds, and it's not clear yet how reliable the drift interpolation is.
+* Modify the code that synchronises the Shairport Sync system's clock with the source clock to try to take account of the sources's nominal rate, which (oddly, e.g. iTunes on a Mac) might not be exactly 44,100 fps. There may be a 32-bit unsigned overflow error here somewhere!
 
-Add some extra fields to the `statistics` output, including nominal source rate, actual input rate, actual output rate, source clock drift, calculated correction needed in ppm. All these numbers agree to a high degree, but the generation of them is fragile and susceptible to errors when there are problems like underrun, and they are not actually running averages, which would be genuinely useful. But they show promise!
+* Try to interpolate for the measured drift between the standard three-second timing snapshots. These changes make a very slight difference from time to time, of the order of microseconds, and it's not clear yet how reliable the drift interpolation is.
+
+* Add some extra fields to the `statistics` output, including nominal source rate, actual input rate, actual output rate, source clock drift, calculated correction needed in ppm. All these numbers agree to a high degree, but the generation of them is fragile and susceptible to errors when there are problems like underrun, and they are not actually running averages, which would be genuinely useful. But they show promise!
 
 **Bug Fixes**
 * Fix a bug in the `dbus` native interface which would silently switch `soxr` interpolation to `basic`.
