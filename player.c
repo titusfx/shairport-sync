@@ -1296,7 +1296,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       time_to_wait_for_wakeup_fp *= 4 * 352;      // four full 352-frame packets
       time_to_wait_for_wakeup_fp /= 3;            // four thirds of a packet time
 
-      time_to_wait_for_wakeup_fp = (uint64_t)0x200000000/(uint64_t)1000;            // two millisecond
+      time_to_wait_for_wakeup_fp = (uint64_t)0x200000000 / (uint64_t)1000; // two millisecond
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
       uint64_t time_of_wakeup_fp = local_time_now + time_to_wait_for_wakeup_fp;
@@ -2106,7 +2106,7 @@ void *player_thread_func(void *arg) {
 
             int64_t should_be_frame;
             local_time_to_frame(local_time_now, &should_be_frame, conn);
-            
+
             int64_t absolute_difference_in_frames = td_in_frames + rt - should_be_frame;
             if (absolute_difference_in_frames < 0)
               absolute_difference_in_frames = -absolute_difference_in_frames;
@@ -2133,8 +2133,8 @@ void *player_thread_func(void *arg) {
                 delay - (conn->latency * conn->output_sample_ratio +
                          (int64_t)(config.audio_backend_latency_offset *
                                    config.output_rate)); // int64_t from int64_t - int32_t, so okay
-            
-            //debug(1,"%" PRId64 "",sync_error,inbuflength);
+
+            // debug(1,"%" PRId64 "",sync_error,inbuflength);
 
             // not too sure if abs() is implemented for int64_t, so we'll do it manually
             int64_t abs_sync_error = sync_error;
@@ -2195,24 +2195,25 @@ void *player_thread_func(void *arg) {
                 amount_to_stuff = 1;
               }
               */
-              
-              
-              if (amount_to_stuff==0) {
+
+              if (amount_to_stuff == 0) {
                 // use a "V" shaped function to decide if stuffing should occur
                 int64_t s = r64i();
-                s = s>>31;
+                s = s >> 31;
                 s = s * config.tolerance * config.output_rate;
-                s = (s>>32)+config.tolerance * config.output_rate; //should be a number from 0 to config.tolerance * config.output_rate;
-                if ((sync_error>0) && (sync_error>s)) {
-                  //debug(1,"Extra stuff -1");
+                s = (s >> 32) + config.tolerance * config.output_rate; // should be a number from 0
+                                                                       // to config.tolerance *
+                                                                       // config.output_rate;
+                if ((sync_error > 0) && (sync_error > s)) {
+                  // debug(1,"Extra stuff -1");
                   amount_to_stuff = -1;
                 }
-                if ((sync_error<0) && (sync_error<(-s))) {
-                  //debug(1,"Extra stuff +1");
+                if ((sync_error < 0) && (sync_error < (-s))) {
+                  // debug(1,"Extra stuff +1");
                   amount_to_stuff = 1;
-                }              
+                }
               }
-              
+
               // try to keep the corrections definitely below 1 in 1000 audio frames
 
               // calculate the time elapsed since the play session started.
@@ -2290,14 +2291,15 @@ void *player_thread_func(void *arg) {
                   tbuf32[2 * i + 1] = fbuf_r[i];
                 }
               }
-              
-              if ((current_delay < DAC_BUFFER_QUEUE_MINIMUM_LENGTH) || (config.packet_stuffing == ST_basic)) {
+
+              if ((current_delay < DAC_BUFFER_QUEUE_MINIMUM_LENGTH) ||
+                  (config.packet_stuffing == ST_basic)) {
                 play_samples =
                     stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
-                                          conn->outbuf, amount_to_stuff, enable_dither, conn);              
+                                          conn->outbuf, amount_to_stuff, enable_dither, conn);
               }
 #ifdef HAVE_LIBSOXR
-                else if (config.packet_stuffing == ST_soxr) {
+              else if (config.packet_stuffing == ST_soxr) {
                 //                if (amount_to_stuff) debug(1,"Soxr stuff...");
                 play_samples = stuff_buffer_soxr_32((int32_t *)conn->tbuf, (int32_t *)conn->sbuf,
                                                     inbuflength, config.output_format, conn->outbuf,
@@ -2451,10 +2453,10 @@ void *player_thread_func(void *arg) {
               conn->frame_rate =
                   (1.0 * frames_played) /
                   elapsed_play_time; // an IEEE double calculation with two 64-bit integers
-              conn->frame_rate = conn->frame_rate *
-                                 (uint64_t)0x100000000; // this should just change the [binary]
-                                                        // exponent in the IEEE FP representation;
-                                                        // the mantissa should be unaffected.
+              conn->frame_rate =
+                  conn->frame_rate * (uint64_t)0x100000000; // this should just change the [binary]
+              // exponent in the IEEE FP representation;
+              // the mantissa should be unaffected.
             } else {
               conn->frame_rate = 0.0;
             }
@@ -2473,96 +2475,86 @@ void *player_thread_func(void *arg) {
 
               if ((config.output->delay)) {
                 if (config.no_sync == 0) {
-                  inform("%*.2f," /* Sync error in milliseconds */
-                         "%*.1f," /* net correction in ppm */
-                         "%*.1f," /* corrections in ppm */
-                         "%*d,"   /* total packets */
+                  inform("%*.2f,"        /* Sync error in milliseconds */
+                         "%*.1f,"        /* net correction in ppm */
+                         "%*.1f,"        /* corrections in ppm */
+                         "%*d,"          /* total packets */
                          "%*" PRIu64 "," /* missing packets */
                          "%*" PRIu64 "," /* late packets */
                          "%*" PRIu64 "," /* too late packets */
                          "%*" PRIu64 "," /* resend requests */
                          "%*" PRId64 "," /* min DAC queue size */
-                         "%*" PRId32 ","   /* min buffer occupancy */
-                         "%*" PRId32 ","   /* max buffer occupancy */
-                         "%*.2f,"  /* source nominal frame rate */
-                         "%*.2f,"  /* source actual (average) frame rate */
-                         "%*.2f,"  /* output frame rate */
-                         "%*.2f,"  /* source clock drift */
-                         "%*d,"    /* source clock drift sample count */
-                         "%*.2f", /* rough calculated correction in ppm */
-                         10, 1000 * moving_average_sync_error / config.output_rate,
-                         10, moving_average_correction * 1000000 / (352 * conn->output_sample_ratio),
+                         "%*" PRId32 "," /* min buffer occupancy */
+                         "%*" PRId32 "," /* max buffer occupancy */
+                         "%*.2f,"        /* source nominal frame rate */
+                         "%*.2f,"        /* source actual (average) frame rate */
+                         "%*.2f,"        /* output frame rate */
+                         "%*.2f,"        /* source clock drift */
+                         "%*d,"          /* source clock drift sample count */
+                         "%*.2f",        /* rough calculated correction in ppm */
+                         10,
+                         1000 * moving_average_sync_error / config.output_rate, 10,
+                         moving_average_correction * 1000000 / (352 * conn->output_sample_ratio),
                          10, moving_average_insertions_plus_deletions * 1000000 /
                                  (352 * conn->output_sample_ratio),
-                         12, play_number,
-                         7, conn->missing_packets,
-                         7, conn->late_packets,
-                         7, conn->too_late_packets,
-                         7, conn->resend_requests,
-                         7, minimum_dac_queue_size,
-                         5, minimum_buffer_occupancy,
-                         5, maximum_buffer_occupancy,
-                         11, conn->remote_frame_rate,
-                         11, conn->input_frame_rate,
-                         11, conn->frame_rate,
-                         10, (conn->local_to_remote_time_gradient-1.0) * 1000000,
-                         6, conn->local_to_remote_time_gradient_sample_count,
-                         10, (conn->frame_rate > 0.0) ? ((conn->frame_rate - conn->remote_frame_rate * conn->output_sample_ratio * conn->local_to_remote_time_gradient)*1000000)/conn->frame_rate : 0.0);
+                         12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
+                         conn->too_late_packets, 7, conn->resend_requests, 7,
+                         minimum_dac_queue_size, 5, minimum_buffer_occupancy, 5,
+                         maximum_buffer_occupancy, 11, conn->remote_frame_rate, 11,
+                         conn->input_frame_rate, 11, conn->frame_rate, 10,
+                         (conn->local_to_remote_time_gradient - 1.0) * 1000000, 6,
+                         conn->local_to_remote_time_gradient_sample_count, 10,
+                         (conn->frame_rate > 0.0)
+                             ? ((conn->frame_rate -
+                                 conn->remote_frame_rate * conn->output_sample_ratio *
+                                     conn->local_to_remote_time_gradient) *
+                                1000000) /
+                                   conn->frame_rate
+                             : 0.0);
                 } else {
-                  inform("%*.2f," /* Sync error in milliseconds */
-                         "%*d,"   /* total packets */
+                  inform("%*.2f,"        /* Sync error in milliseconds */
+                         "%*d,"          /* total packets */
                          "%*" PRIu64 "," /* missing packets */
                          "%*" PRIu64 "," /* late packets */
                          "%*" PRIu64 "," /* too late packets */
                          "%*" PRIu64 "," /* resend requests */
                          "%*" PRId64 "," /* min DAC queue size */
-                         "%*" PRId32 ","   /* min buffer occupancy */
-                         "%*" PRId32 ","   /* max buffer occupancy */
-                         "%*.2f," /* source nominal frame rate */
-                         "%*.2f," /* source actual (average) frame rate */
-                         "%*.2f," /* source clock drift */
-                         "%*d",   /* source clock drift sample count */
+                         "%*" PRId32 "," /* min buffer occupancy */
+                         "%*" PRId32 "," /* max buffer occupancy */
+                         "%*.2f,"        /* source nominal frame rate */
+                         "%*.2f,"        /* source actual (average) frame rate */
+                         "%*.2f,"        /* source clock drift */
+                         "%*d",          /* source clock drift sample count */
                          10,
-                         1000 * moving_average_sync_error / config.output_rate,
-                         12, play_number,
-                         7, conn->missing_packets,
-                         7, conn->late_packets,
-                         7, conn->too_late_packets,
-                         7, conn->resend_requests,
-                         7, minimum_dac_queue_size,
-                         5, minimum_buffer_occupancy,
-                         5, maximum_buffer_occupancy,
-                         11, conn->remote_frame_rate,
-                         11, conn->input_frame_rate,
-                         10, (conn->local_to_remote_time_gradient-1.0) * 1000000,
-                         6, conn->local_to_remote_time_gradient_sample_count);
+                         1000 * moving_average_sync_error / config.output_rate, 12, play_number, 7,
+                         conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets, 7,
+                         conn->resend_requests, 7, minimum_dac_queue_size, 5,
+                         minimum_buffer_occupancy, 5, maximum_buffer_occupancy, 11,
+                         conn->remote_frame_rate, 11, conn->input_frame_rate, 10,
+                         (conn->local_to_remote_time_gradient - 1.0) * 1000000, 6,
+                         conn->local_to_remote_time_gradient_sample_count);
                 }
               } else {
-                inform("%*.2f," /* Sync error in milliseconds */
-                       "%*d,"   /* total packets */
+                inform("%*.2f,"        /* Sync error in milliseconds */
+                       "%*d,"          /* total packets */
                        "%*" PRIu64 "," /* missing packets */
                        "%*" PRIu64 "," /* late packets */
                        "%*" PRIu64 "," /* too late packets */
                        "%*" PRIu64 "," /* resend requests */
-                       "%*" PRId32 ","   /* min buffer occupancy */
-                       "%*" PRId32 ","   /* max buffer occupancy */
-                       "%*.2f," /* source nominal frame rate */
-                       "%*.2f," /* source actual (average) frame rate */
-                       "%*.2f," /* source clock drift */
-                       "%*d",   /* source clock drift sample count */
+                       "%*" PRId32 "," /* min buffer occupancy */
+                       "%*" PRId32 "," /* max buffer occupancy */
+                       "%*.2f,"        /* source nominal frame rate */
+                       "%*.2f,"        /* source actual (average) frame rate */
+                       "%*.2f,"        /* source clock drift */
+                       "%*d",          /* source clock drift sample count */
                        10,
-                       1000 * moving_average_sync_error / config.output_rate,
-                       12, play_number,
-                       7, conn->missing_packets,
-                       7, conn->late_packets,
-                       7, conn->too_late_packets,
-                       7, conn->resend_requests,
-                       5, minimum_buffer_occupancy,
-                       5, maximum_buffer_occupancy,
-                       11, conn->remote_frame_rate,
-                       11, conn->input_frame_rate,
-                       10, (conn->local_to_remote_time_gradient-1.0) * 1000000,
-                       6, conn->local_to_remote_time_gradient_sample_count);
+                       1000 * moving_average_sync_error / config.output_rate, 12, play_number, 7,
+                       conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets, 7,
+                       conn->resend_requests, 5, minimum_buffer_occupancy, 5,
+                       maximum_buffer_occupancy, 11, conn->remote_frame_rate, 11,
+                       conn->input_frame_rate, 10,
+                       (conn->local_to_remote_time_gradient - 1.0) * 1000000, 6,
+                       conn->local_to_remote_time_gradient_sample_count);
               }
             } else {
               inform("No frames received in the last sampling interval.");
