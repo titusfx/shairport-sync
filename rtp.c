@@ -794,11 +794,10 @@ void *rtp_timing_receiver(void *arg) {
                 }
               conn->local_to_remote_time_gradient_sample_count = sample_count;
               conn->local_to_remote_time_gradient = (1.0 * mtl) / mbl;
-              // debug(1,"Drift is %12.2f ppm, based on %d
-              // samples.",(1.0-conn->local_to_remote_time_gradient)*1000000,sample_count);
             } else {
               conn->local_to_remote_time_gradient = 1.0;
             }
+            // debug(1,"local to remote time gradient is %12.2f ppm, based on %d samples.",conn->local_to_remote_time_gradient*1000000,sample_count);
           } else {
             debug(2, "Time ping turnaround time: %lld us -- it looks like a timing ping was lost.",
                   (return_time * 1000000) >> 32);

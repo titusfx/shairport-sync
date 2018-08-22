@@ -882,7 +882,13 @@ int delay(long *the_delay) {
         debug(1, "Error %d in delay(): \"%s\". Delay reported is %d frames.", reply,
               snd_strerror(reply), *the_delay);
         snd_pcm_recover(alsa_handle, reply, 1);
-      }
+      } else {
+        if (*the_delay==0) {
+          // there's nothing in the pipeline, so we can't measure frame rate.
+          frame_index = 0; // we'll be starting over...
+          measurement_data_is_valid = 0;
+        }
+      }      
     } else {
       frame_index = 0; // we'll be starting over...
       measurement_data_is_valid = 0;
@@ -985,7 +991,14 @@ static int play(void *buf, int samples) {
             debug(1, "Error %d in delay(): \"%s\". Delay reported is %d frames.", err2,
                   snd_strerror(err2), fl);
             snd_pcm_recover(alsa_handle, err2, 1);
+          } else {
+            if (fl==0) {
+              // there's nothing in the pipeline, so we can't measure frame rate.
+              frame_index = 0; // we'll be starting over...
+              measurement_data_is_valid = 0;
+            }
           }
+          
           uint64_t tf = get_absolute_time_in_fp();
           frames_played_at_measurement_time = frames_sent_for_playing - fl;
           if (frame_index == start_measurement_from_this_frame) {
