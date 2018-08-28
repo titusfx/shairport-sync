@@ -1,3 +1,10 @@
+Version 3.3d4
+====
+* Sometimes `libsoxr` is built to rely on `libavutil`. With the present changes to `configure.ac`, if `libavutil` is present, link to it when linking to `libsoxr`, but if it's not present, don't link to it when linking to `libsoxr`.
+* Add `pgk_config` support to `libsoxr` selection.
+
+Thanks to [Jörg Krause](https://github.com/joerg-krause) for identifying these issues and proposing fixes.
+
 Version 3.3d3
 ====
 * Modify the code that synchronises the Shairport Sync system's clock with the source clock to try to take account of the sources's nominal rate, which (oddly, e.g. iTunes on a Mac) might not be exactly 44,100 fps. There may be a 32-bit unsigned overflow error here somewhere!
