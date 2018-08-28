@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.50])
-AC_INIT([shairport-sync], [3.3d3], [mikebrady@eircom.net])
+AC_INIT([shairport-sync], [3.3avs0], [mikebrady@eircom.net])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([shairport.c])
 AC_CONFIG_HEADERS([config.h])
@@ -176,7 +176,20 @@ AC_ARG_WITH(ssl, [ choose --with-ssl=openssl, --with-ssl=mbedtls or --with-ssl=p
 # Look for soxr flag
 AC_ARG_WITH(soxr, [  --with-soxr = choose libsoxr for high-quality interpolation], [
   AC_MSG_RESULT(>>Including support for soxr-based interpolation)
-  AC_CHECK_LIB([soxr],[soxr_create], , AC_MSG_ERROR(soxr support requested but libsoxr not found!))], )
+  if  test "x${with_pkg_config}" = xyes ; then
+    PKG_CHECK_MODULES(
+        [SOXR], [soxr],
+        [LIBS="${SOXR_LIBS} ${LIBS}"])
+  else
+    AC_CHECK_LIB([avutil],[av_get_cpu_flags])
+    if  test "x${ac_cv_lib_avutil_av_get_cpu_flags}" = xyes ; then
+      # soxr may link against libavutil, depending on the architecture, but for the sake of simplicity link with it if it is found
+      AC_CHECK_LIB([soxr],[soxr_create], , AC_MSG_ERROR(soxr support requested but libsoxr not found!), [-lavutil])
+    else
+      AC_CHECK_LIB([soxr],[soxr_create], , AC_MSG_ERROR(soxr support requested but libsoxr not found!))
+    fi
+  fi
+], )
 
 # Look for metadata flag -- set flag for conditional compilation
 AC_ARG_WITH(metadata, [  --with-metadata = include support for a metadata feed], [
