@@ -844,7 +844,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     
     if (config.output->is_running)
       if (config.output->is_running() !=0 ) { // if the back end isn't running for any reason
-        debug(1,"not running");
+        debug(3,"not running");
         debug_mutex_lock(&conn->flush_mutex, 1000, 1);
         conn->flush_requested = 1;
         debug_mutex_unlock(&conn->flush_mutex, 3);
