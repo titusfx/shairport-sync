@@ -969,43 +969,12 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               // what we are asking for here is "what is the local time at which time the calculated
               // frame should be played"
 
-/*
-              int64_t delta = (conn->first_packet_timestamp - reference_timestamp) +
-                              conn->latency * conn->output_sample_ratio +
-                              (int64_t)(config.audio_backend_latency_offset * config.output_rate);
-
-              if (delta >= 0) {
-                int64_t delta_fp_sec =
-                    (delta << 32) / config.output_rate; // int64_t which is positive
-                conn->first_packet_time_to_play = reference_timestamp_time + delta_fp_sec;
-              } else {
-                int64_t abs_delta = -delta;
-                int64_t delta_fp_sec =
-                    (abs_delta << 32) / config.output_rate; // int64_t which is positive
-                conn->first_packet_time_to_play = reference_timestamp_time - delta_fp_sec;
-              }
-*/
-
               uint64_t should_be_time;
               frame_to_local_time(
                   conn->first_packet_timestamp + conn->latency * conn->output_sample_ratio +
                       (int64_t)(config.audio_backend_latency_offset * config.output_rate),
                   &should_be_time, conn);
-/*
-              if (should_be_time >= conn->first_packet_time_to_play) {
-                if ((((should_be_time - conn->first_packet_time_to_play) * 1000000) >> 32) > 10)
-                  debug(2, "New time for first packet timestamp %" PRId64
-                           " is later than calculated time by %" PRId64 " microseconds.",
-                        curframe->timestamp,
-                        ((should_be_time - conn->first_packet_time_to_play) * 1000000) >> 32);
-              } else {
-                if ((((conn->first_packet_time_to_play - should_be_time) * 1000000) >> 32) > 10)
-                  debug(2, "New time for first packet timestamp %" PRId64
-                           " is earlier than calculated time by %" PRId64 " microseconds.",
-                        curframe->timestamp,
-                        ((conn->first_packet_time_to_play - should_be_time) * 1000000) >> 32);
-              }
-*/
+
               conn->first_packet_time_to_play = should_be_time;
 
               if (local_time_now >= conn->first_packet_time_to_play) {
@@ -1020,42 +989,13 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
           if (conn->first_packet_time_to_play != 0) {
             // recalculate conn->first_packet_time_to_play -- the latency might change
-/*
-            int64_t delta = (conn->first_packet_timestamp - reference_timestamp) +
-                            conn->latency * conn->output_sample_ratio +
-                            (int64_t)(config.audio_backend_latency_offset * config.output_rate);
 
-            if (delta >= 0) {
-              int64_t delta_fp_sec =
-                  (delta << 32) / config.output_rate; // int64_t which is positive
-              conn->first_packet_time_to_play = reference_timestamp_time + delta_fp_sec;
-            } else {
-              int64_t abs_delta = -delta;
-              int64_t delta_fp_sec =
-                  (abs_delta << 32) / config.output_rate; // int64_t which is positive
-              conn->first_packet_time_to_play = reference_timestamp_time - delta_fp_sec;
-            }
-*/
             uint64_t should_be_time;
             frame_to_local_time(
                 conn->first_packet_timestamp + conn->latency * conn->output_sample_ratio +
                     (int64_t)(config.audio_backend_latency_offset * config.output_rate),
                 &should_be_time, conn);
-/*
-            if (should_be_time >= conn->first_packet_time_to_play) {
-              if ((((should_be_time - conn->first_packet_time_to_play) * 1000000) >> 32) > 50)
-                debug(2, "New time for recalculated first packet timestamp %" PRId64
-                         " is later than calculated time by %" PRId64 " microseconds.",
-                      curframe->timestamp,
-                      ((should_be_time - conn->first_packet_time_to_play) * 1000000) >> 32);
-            } else {
-              if ((((conn->first_packet_time_to_play - should_be_time) * 1000000) >> 32) > 50)
-                debug(2, "New time for recalculated first packet timestamp %" PRId64
-                         " is earlier than calculated time by %" PRId64 " microseconds.",
-                      curframe->timestamp,
-                      ((conn->first_packet_time_to_play - should_be_time) * 1000000) >> 32);
-            }
-*/
+
             conn->first_packet_time_to_play = should_be_time;
             
             // now, the size of the initial silence must be affected by the lead-in time.
@@ -1241,61 +1181,11 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
       // here, get the time to play the current frame.
 
-      /*
-      int64_t reference_timestamp;
-      uint64_t reference_timestamp_time, remote_reference_timestamp_time;
-      get_reference_timestamp_stuff(&reference_timestamp, &reference_timestamp_time,
-                                    &remote_reference_timestamp_time, conn); // all types okay
-      reference_timestamp *= conn->output_sample_ratio;
-      */
-      
       if (have_timestamp_timing_information(conn)) {    // if we have a reference time
+
         uint64_t time_to_play;
-      /*
-        int64_t packet_timestamp = curframe->timestamp; // types okay
-        int64_t delta = packet_timestamp - reference_timestamp;
-        int64_t offset =
-            conn->latency * conn->output_sample_ratio +
-            (int64_t)(config.audio_backend_latency_offset * config.output_rate) -
-            config.audio_backend_buffer_desired_length *
-                config.output_rate; // all arguments are int32_t, so expression promotion okay
-        int64_t net_offset = delta + offset; // okay
-
-        time_to_play = reference_timestamp_time; // type okay
-        if (net_offset >= 0) {
-          uint64_t net_offset_fp_sec =
-              (net_offset << 32) / config.output_rate; // int64_t which is positive
-          time_to_play += net_offset_fp_sec;           // using the latency requested...
-          // debug(2,"Net Offset: %lld, adjusted: %lld.",net_offset,net_offset_fp_sec);
-        } else {
-          int64_t abs_net_offset = -net_offset;
-          uint64_t net_offset_fp_sec =
-              (abs_net_offset << 32) / config.output_rate; // int64_t which is positive
-          time_to_play -= net_offset_fp_sec;
-          // debug(2,"Net Offset: %lld, adjusted: -%lld.",net_offset,net_offset_fp_sec);
-        }
-
-        uint64_t new_time_to_play = 0;
-        */
         frame_to_local_time(curframe->timestamp + conn->latency * conn->output_sample_ratio + (int64_t)(config.audio_backend_latency_offset * config.output_rate) - config.audio_backend_buffer_desired_length * config.output_rate, &time_to_play, conn);
-
-/*
-        if (new_time_to_play >= time_to_play) {
-          if ((((new_time_to_play - time_to_play) * 1000000) >> 32) > 100)
-            debug(2, "New time for frame %" PRId64 " is later than calculated time by %" PRId64
-                     " microseconds.",
-                  curframe->timestamp, ((new_time_to_play - time_to_play) * 1000000) >> 32);
-        } else {
-          if ((((time_to_play - new_time_to_play) * 1000000) >> 32) > 100)
-            debug(2, "New time for frame %" PRId64 " is earlier than calculated time by %" PRId64
-                     " microseconds.",
-                  curframe->timestamp, ((time_to_play - new_time_to_play) * 1000000) >> 32);
-        }
-
-        // cut over to the new calculation system
-        time_to_play = new_time_to_play;
-*/
-
+        
         if (local_time_now >= time_to_play) {
           do_wait = 0;
         }
