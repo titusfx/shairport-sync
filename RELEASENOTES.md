@@ -1,3 +1,7 @@
+Version 3.3d5
+====
+* Introducing a very rough implementation of a [Jack Audio](http://jackaudio.org) backend. The JACK Audio Connection Kit "provides a basic infrastructure for audio applications to communicate with each other and with audio hardware. Through JACK, users are enabled to build powerful systems for signal processing and music production." 
+
 Version 3.3d4
 ====
 * Sometimes `libsoxr` is built to rely on `libavutil`. With the present changes to `configure.ac`, if `libavutil` is present, link to it when linking to `libsoxr`, but if it's not present, don't link to it when linking to `libsoxr`.
