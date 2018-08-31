@@ -220,6 +220,20 @@ AC_ARG_WITH(alsa, [  --with-alsa = choose ALSA API support (GNU/Linux only)],
   fi ])
 AM_CONDITIONAL([USE_ALSA], [test "x$HAS_ALSA" = "x1"])
 
+# Look for jack flag
+AC_ARG_WITH(jack, [  --with-jack = include a Jack Audio Connection Kit (jack) backend], [
+  AC_MSG_RESULT(>>Including a Jack Audio Connection Kit (jack) back end)
+  HAS_JACK=1
+  AC_DEFINE([CONFIG_JACK], 1, [Needed by the compiler.])
+  if  test "x${with_pkg_config}" = xyes ; then
+    PKG_CHECK_MODULES(
+      [JACK], [jack],
+      [LIBS="${JACK_LIBS} ${LIBS}"],[AC_MSG_ERROR(Jack Audio Connection Kit support requires the jack library -- libjack-dev suggested!)])
+  else
+    AC_CHECK_LIB([jack], [jack_client_open], , AC_MSG_ERROR(Jack Audio Connection Kit support requires the jack library -- libjack-dev suggested!))
+  fi ])
+AM_CONDITIONAL([USE_JACK], [test "x$HAS_JACK" = "x1"])
+
 # Look for SNDIO flag
 AC_ARG_WITH(sndio, [  --with-sndio = choose SNDIO API support], [
   AC_MSG_RESULT(>>Including a SNDIO back end)

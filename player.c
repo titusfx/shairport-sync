@@ -841,6 +841,14 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
         debug_mutex_unlock(&conn->flush_mutex, 3);
       }
     }
+    
+    if (config.output->is_running)
+      if (config.output->is_running() !=0 ) { // if the back end isn't running for any reason
+        debug(1,"not running");
+        debug_mutex_lock(&conn->flush_mutex, 1000, 1);
+        conn->flush_requested = 1;
+        debug_mutex_unlock(&conn->flush_mutex, 3);
+     }
 
     debug_mutex_lock(&conn->flush_mutex, 1000, 1);
     if (conn->flush_requested == 1) {
@@ -905,11 +913,13 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                                    // player
           int have_sent_prefiller_silence = 1; // set true when we have sent some silent frames to
                                                // the DAC
+          /*                                    
           int64_t reference_timestamp;
           uint64_t reference_timestamp_time, remote_reference_timestamp_time;
           get_reference_timestamp_stuff(&reference_timestamp, &reference_timestamp_time,
                                         &remote_reference_timestamp_time, conn);
           reference_timestamp *= conn->output_sample_ratio;
+          */
           if (conn->first_packet_timestamp == 0) { // if this is the very first packet
                                                    // debug(1,"First frame seen, time %u, with %d
             // frames...",curframe->timestamp,seq_diff(ab_read, ab_write));
@@ -959,6 +969,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               // what we are asking for here is "what is the local time at which time the calculated
               // frame should be played"
 
+/*
               int64_t delta = (conn->first_packet_timestamp - reference_timestamp) +
                               conn->latency * conn->output_sample_ratio +
                               (int64_t)(config.audio_backend_latency_offset * config.output_rate);
@@ -973,13 +984,14 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                     (abs_delta << 32) / config.output_rate; // int64_t which is positive
                 conn->first_packet_time_to_play = reference_timestamp_time - delta_fp_sec;
               }
+*/
 
               uint64_t should_be_time;
               frame_to_local_time(
                   conn->first_packet_timestamp + conn->latency * conn->output_sample_ratio +
                       (int64_t)(config.audio_backend_latency_offset * config.output_rate),
                   &should_be_time, conn);
-
+/*
               if (should_be_time >= conn->first_packet_time_to_play) {
                 if ((((should_be_time - conn->first_packet_time_to_play) * 1000000) >> 32) > 10)
                   debug(2, "New time for first packet timestamp %" PRId64
@@ -993,8 +1005,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                         curframe->timestamp,
                         ((conn->first_packet_time_to_play - should_be_time) * 1000000) >> 32);
               }
-
-              // cut over to new calculation scheme
+*/
               conn->first_packet_time_to_play = should_be_time;
 
               if (local_time_now >= conn->first_packet_time_to_play) {
@@ -1009,6 +1020,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
           if (conn->first_packet_time_to_play != 0) {
             // recalculate conn->first_packet_time_to_play -- the latency might change
+/*
             int64_t delta = (conn->first_packet_timestamp - reference_timestamp) +
                             conn->latency * conn->output_sample_ratio +
                             (int64_t)(config.audio_backend_latency_offset * config.output_rate);
@@ -1023,13 +1035,13 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                   (abs_delta << 32) / config.output_rate; // int64_t which is positive
               conn->first_packet_time_to_play = reference_timestamp_time - delta_fp_sec;
             }
-
+*/
             uint64_t should_be_time;
             frame_to_local_time(
                 conn->first_packet_timestamp + conn->latency * conn->output_sample_ratio +
                     (int64_t)(config.audio_backend_latency_offset * config.output_rate),
                 &should_be_time, conn);
-
+/*
             if (should_be_time >= conn->first_packet_time_to_play) {
               if ((((should_be_time - conn->first_packet_time_to_play) * 1000000) >> 32) > 50)
                 debug(2, "New time for recalculated first packet timestamp %" PRId64
@@ -1043,7 +1055,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                       curframe->timestamp,
                       ((conn->first_packet_time_to_play - should_be_time) * 1000000) >> 32);
             }
-
+*/
+            conn->first_packet_time_to_play = should_be_time;
+            
             // now, the size of the initial silence must be affected by the lead-in time.
             // it must be somewhat less than the lead-in time so that dynamic adjustments can be
             // made
@@ -1226,12 +1240,18 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
           1; // if the current frame exists and is ready, then wait unless it's time to let it go...
 
       // here, get the time to play the current frame.
+
+      /*
       int64_t reference_timestamp;
       uint64_t reference_timestamp_time, remote_reference_timestamp_time;
       get_reference_timestamp_stuff(&reference_timestamp, &reference_timestamp_time,
                                     &remote_reference_timestamp_time, conn); // all types okay
       reference_timestamp *= conn->output_sample_ratio;
+      */
+      
       if (have_timestamp_timing_information(conn)) {    // if we have a reference time
+        uint64_t time_to_play;
+      /*
         int64_t packet_timestamp = curframe->timestamp; // types okay
         int64_t delta = packet_timestamp - reference_timestamp;
         int64_t offset =
@@ -1241,7 +1261,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                 config.output_rate; // all arguments are int32_t, so expression promotion okay
         int64_t net_offset = delta + offset; // okay
 
-        uint64_t time_to_play = reference_timestamp_time; // type okay
+        time_to_play = reference_timestamp_time; // type okay
         if (net_offset >= 0) {
           uint64_t net_offset_fp_sec =
               (net_offset << 32) / config.output_rate; // int64_t which is positive
@@ -1256,8 +1276,10 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
         }
 
         uint64_t new_time_to_play = 0;
-        frame_to_local_time(packet_timestamp + offset, &new_time_to_play, conn);
+        */
+        frame_to_local_time(curframe->timestamp + conn->latency * conn->output_sample_ratio + (int64_t)(config.audio_backend_latency_offset * config.output_rate) - config.audio_backend_buffer_desired_length * config.output_rate, &time_to_play, conn);
 
+/*
         if (new_time_to_play >= time_to_play) {
           if ((((new_time_to_play - time_to_play) * 1000000) >> 32) > 100)
             debug(2, "New time for frame %" PRId64 " is later than calculated time by %" PRId64
@@ -1269,8 +1291,10 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                      " microseconds.",
                   curframe->timestamp, ((time_to_play - new_time_to_play) * 1000000) >> 32);
         }
+
         // cut over to the new calculation system
         time_to_play = new_time_to_play;
+*/
 
         if (local_time_now >= time_to_play) {
           do_wait = 0;
@@ -1295,8 +1319,6 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
           ((uint64_t)1 << 32) / conn->input_rate; // this is time period of one frame
       time_to_wait_for_wakeup_fp *= 4 * 352;      // four full 352-frame packets
       time_to_wait_for_wakeup_fp /= 3;            // four thirds of a packet time
-
-      time_to_wait_for_wakeup_fp = (uint64_t)0x200000000 / (uint64_t)1000; // two millisecond
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
       uint64_t time_of_wakeup_fp = local_time_now + time_to_wait_for_wakeup_fp;

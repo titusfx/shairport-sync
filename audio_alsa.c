@@ -63,6 +63,7 @@ audio_output audio_alsa = {
     .deinit = &deinit,
     .start = &start,
     .stop = &stop,
+    .is_running = NULL,
     .flush = &flush,
     .delay = &delay,
     .play = &play,
