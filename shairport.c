@@ -94,24 +94,6 @@
 #include <FFTConvolver/convolver.h>
 #endif
 
-static inline int config_set_lookup_bool(config_t *cfg, char *where, int *dst) {
-  const char *str = 0;
-  if (config_lookup_string(cfg, where, &str)) {
-    if (strcasecmp(str, "no") == 0) {
-      (*dst) = 0;
-      return 1;
-    } else if (strcasecmp(str, "yes") == 0) {
-      (*dst) = 1;
-      return 1;
-    } else {
-      die("Invalid %s option choice \"%s\". It should be \"yes\" or \"no\"", where, str);
-      return 0;
-    }
-  } else {
-    return 0;
-  }
-}
-
 static int shutting_down = 0;
 char configuration_file_path[4096 + 1];
 char actual_configuration_file_path[4096 + 1];

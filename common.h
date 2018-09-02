@@ -205,6 +205,8 @@ typedef struct {
                                           // debugging. Currently audio packets only...
 #ifdef CONFIG_JACK
   char *jack_client_name, *jack_left_channel_name, *jack_right_channel_name;
+  int jack_auto_client_open_interval; // will try to open a client automatically every second
+  int jack_auto_client_disconnect; // will disconnect from the server on end of session if set, normally clear.
 #endif
 
 } shairport_cfg;
@@ -275,6 +277,8 @@ pthread_t main_thread_id;
 
 shairport_cfg config;
 config_t config_file_stuff;
+
+int config_set_lookup_bool(config_t *cfg, char *where, int *dst);
 
 void command_start(void);
 void command_stop(void);

@@ -42,10 +42,13 @@ enum ift_type {
 #define buffer_size 44100 * 4 * 2 * 2
 
 static pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 char *audio_lmb, *audio_umb, *audio_toq, *audio_eoq;
 size_t audio_occupancy; // this is in frames, not bytes. A frame is a left and
                         // right sample, each 16 bits, hence 4 bytes
+pthread_t *open_client_if_necessary_thread = NULL;
+
 
 // static void help(void);
 int init(int, char **);
@@ -220,6 +223,7 @@ int jack_is_running() {
 }
 
 int jack_client_open_if_needed(void) {
+  pthread_mutex_lock(&client_mutex);
   if (client_is_open == 0) {
     jack_status_t status;
     client = jack_client_open(config.jack_client_name, JackNoStartServer, &status);
@@ -245,21 +249,46 @@ int jack_client_open_if_needed(void) {
       }
     }
   }
+  pthread_mutex_unlock(&client_mutex);
   return client_is_open;
 }
 
-void jack_deinit() {
+void jack_close(void) {
+  pthread_mutex_lock(&client_mutex);
   if (client_is_open) {
     if (jack_deactivate(client))
       debug(1, "Error deactivating jack client");
     if (jack_client_close(client))
       debug(1, "Error closing jack client");
+    client_is_open = 0;
   }
+  pthread_mutex_unlock(&client_mutex);
+}
+
+void jack_deinit() {
+  jack_close();
+  if (open_client_if_necessary_thread) {
+    pthread_cancel(*open_client_if_necessary_thread);
+    free((char *)open_client_if_necessary_thread);
+  }
+}
+
+void *open_client_if_necessary_thread_function(void *arg) {
+  int *interval = (int *)arg;
+  while (*interval != 0) {
+    if (client_is_open == 0) {
+      debug(1, "Try to open the jack client");
+      jack_client_open_if_needed();
+    }
+    sleep(*interval);
+  }  
+  pthread_exit(NULL);
 }
 
 int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.15;
+  config.jack_auto_client_open_interval = 1; // check every second
 
   // get settings from settings file first, allow them to be overridden by
   // command line options
@@ -272,6 +301,7 @@ int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) 
   // now the specific options
   if (config.cfg != NULL) {
     const char *str;
+    int value;
     /* Get the Client Name. */
     if (config_lookup_string(config.cfg, "jack.client_name", &str)) {
       config.jack_client_name = (char *)str;
@@ -284,6 +314,21 @@ int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) 
     if (config_lookup_string(config.cfg, "jack.right_channel_name", &str)) {
       config.jack_right_channel_name = (char *)str;
     }
+    
+    /* See if we should attempt to connect to the jack server automatically, and, if so, how often we should try. */
+    if (config_lookup_int(config.cfg, "jack.auto_client_open_interval", &value)) {
+      if ((value < 0) || (value > 300))
+        die("Invalid jack auto_client_open_interval \"%sd\". It should be between 0 and 300, default is %d",
+              value,config.jack_auto_client_open_interval);
+      else
+        config.jack_auto_client_open_interval = value;
+    }
+
+    /* See if we should close the client at then end of a play session. */
+    config_set_lookup_bool(config.cfg, "jack.auto_client_disconnect", &config.jack_auto_client_disconnect);
+    
+    // now, start a thread to automatically open a client when there is a server.
+    
   }
 
   if (config.jack_client_name == NULL)
@@ -305,16 +350,22 @@ int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) 
   audio_occupancy = 0; // frames
 
   client_is_open = 0;
-  jack_client_open_if_needed();
+  
+  if (config.jack_auto_client_open_interval != 0) {
+    open_client_if_necessary_thread = malloc(sizeof(pthread_t));
+    if (open_client_if_necessary_thread == NULL)
+      die("Couldn't allocate space for jack server scanner thread");
+    pthread_create(open_client_if_necessary_thread, NULL, open_client_if_necessary_thread_function, &config.jack_auto_client_open_interval);
+  } else {
+    jack_client_open_if_needed();
+  }
 
   return 0;
 }
 
 void jack_start(__attribute__((unused)) int i_sample_rate,
                 __attribute__((unused)) int i_sample_format) {
-  debug(1, "jack start");
-  // int reply = -1;
-
+  // debug(1, "jack start");
   // see if the client is running. If not, try to open and initialise it
 
   if (jack_client_open_if_needed() == 0)
@@ -358,4 +409,8 @@ void jack_flush() {
   // unlock
 }
 
-void jack_stop(void) { debug(1, "jack stop"); }
+void jack_stop(void) {
+  // debug(1, "jack stop");
+  if (config.jack_auto_client_disconnect)
+    jack_close();
+}
