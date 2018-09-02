@@ -49,7 +49,6 @@ size_t audio_occupancy; // this is in frames, not bytes. A frame is a left and
                         // right sample, each 16 bits, hence 4 bytes
 pthread_t *open_client_if_necessary_thread = NULL;
 
-
 // static void help(void);
 int init(int, char **);
 // static void onmove_cb(void *, int);
@@ -85,7 +84,7 @@ int client_is_open;
 jack_client_t *client;
 jack_nframes_t sample_rate;
 
-jack_latency_range_t latest_left_latency_range,latest_right_latency_range;
+jack_latency_range_t latest_left_latency_range, latest_right_latency_range;
 int64_t time_of_latest_transfer;
 
 int play(void *buf, int samples) {
@@ -281,7 +280,7 @@ void *open_client_if_necessary_thread_function(void *arg) {
       jack_client_open_if_needed();
     }
     sleep(*interval);
-  }  
+  }
   pthread_exit(NULL);
 }
 
@@ -314,21 +313,23 @@ int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) 
     if (config_lookup_string(config.cfg, "jack.right_channel_name", &str)) {
       config.jack_right_channel_name = (char *)str;
     }
-    
-    /* See if we should attempt to connect to the jack server automatically, and, if so, how often we should try. */
+
+    /* See if we should attempt to connect to the jack server automatically, and, if so, how often
+     * we should try. */
     if (config_lookup_int(config.cfg, "jack.auto_client_open_interval", &value)) {
       if ((value < 0) || (value > 300))
-        die("Invalid jack auto_client_open_interval \"%sd\". It should be between 0 and 300, default is %d",
-              value,config.jack_auto_client_open_interval);
+        die("Invalid jack auto_client_open_interval \"%sd\". It should be between 0 and 300, "
+            "default is %d",
+            value, config.jack_auto_client_open_interval);
       else
         config.jack_auto_client_open_interval = value;
     }
 
     /* See if we should close the client at then end of a play session. */
-    config_set_lookup_bool(config.cfg, "jack.auto_client_disconnect", &config.jack_auto_client_disconnect);
-    
+    config_set_lookup_bool(config.cfg, "jack.auto_client_disconnect",
+                           &config.jack_auto_client_disconnect);
+
     // now, start a thread to automatically open a client when there is a server.
-    
   }
 
   if (config.jack_client_name == NULL)
@@ -350,12 +351,13 @@ int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) 
   audio_occupancy = 0; // frames
 
   client_is_open = 0;
-  
+
   if (config.jack_auto_client_open_interval != 0) {
     open_client_if_necessary_thread = malloc(sizeof(pthread_t));
     if (open_client_if_necessary_thread == NULL)
       die("Couldn't allocate space for jack server scanner thread");
-    pthread_create(open_client_if_necessary_thread, NULL, open_client_if_necessary_thread_function, &config.jack_auto_client_open_interval);
+    pthread_create(open_client_if_necessary_thread, NULL, open_client_if_necessary_thread_function,
+                   &config.jack_auto_client_open_interval);
   } else {
     jack_client_open_if_needed();
   }
@@ -373,30 +375,32 @@ void jack_start(__attribute__((unused)) int i_sample_rate,
 }
 
 int jack_delay(long *the_delay) {
-  
+
   // without the mutex, we could get the time of what is the last transfer of data to a jack buffer,
-  // but then a transfer could occur and we would get the buffer occupancy after another transfer had occurred
-  // so we could "lose" a full transfer (e.g. 1024 frames @ 44,100 fps ~ 23.2 milliseconds) 
-  pthread_mutex_lock(&buffer_mutex);  
+  // but then a transfer could occur and we would get the buffer occupancy after another transfer
+  // had occurred
+  // so we could "lose" a full transfer (e.g. 1024 frames @ 44,100 fps ~ 23.2 milliseconds)
+  pthread_mutex_lock(&buffer_mutex);
   int64_t time_now = get_absolute_time_in_fp();
-  int64_t delta = time_now - time_of_latest_transfer; // this is the time back to the last time data was transferred into a jack buffer
-  size_t audio_occupancy_now = audio_occupancy; // this is the buffer occupancy before any subsequent transfer because transfer is blocked by the mutex
+  int64_t delta = time_now - time_of_latest_transfer; // this is the time back to the last time data
+                                                      // was transferred into a jack buffer
+  size_t audio_occupancy_now = audio_occupancy;       // this is the buffer occupancy before any
+                                                // subsequent transfer because transfer is blocked
+                                                // by the mutex
   pthread_mutex_unlock(&buffer_mutex);
 
   int64_t frames_processed_since_latest_latency_check = (delta * 44100) >> 32;
 
   // debug(1,"delta: %" PRId64 " frames.",frames_processed_since_latest_latency_check);
-  jack_nframes_t base_latency = (latest_left_latency_range.min + latest_left_latency_range.max)/2;
+  jack_nframes_t base_latency = (latest_left_latency_range.min + latest_left_latency_range.max) / 2;
   if (base_latency == 0)
-    base_latency = (latest_right_latency_range.min + latest_right_latency_range.max)/2;
-  *the_delay =
-      base_latency + audio_occupancy_now - frames_processed_since_latest_latency_check;
+    base_latency = (latest_right_latency_range.min + latest_right_latency_range.max) / 2;
+  *the_delay = base_latency + audio_occupancy_now - frames_processed_since_latest_latency_check;
 
   // debug(1,"reporting a delay of %d frames",*the_delay);
 
   return 0;
 }
-
 
 void jack_flush() {
   //  debug(1,"jack flush");
