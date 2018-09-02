@@ -1,6 +1,21 @@
+Version 3.3d6
+====
+An improved [Jack Audio](http://jackaudio.org) backend. Testing notes:
+* At the `./configure` step, include `--with-jack`. This should not require any extra packages or libraries when it is being compiled on an AVLinux machine. No need for any other backend to be included, so you can omit `--with-alsa`, etc.
+* Tested on the latest AVLinux only.
+* Jack Audio will not run correctly on a virtual machine; it will only work properly on a real device.
+* A new set of configuration options are present in the configuration file.
+* The Shairport Sync backend will attempt, every second, to open a client on the Jack server until it succeeds. This behaviour can be stopped or the interval extended with the `jack` `auto_client_open_interval` configuration option.
+* Once a Jack client has been opened by the Shairport Sync backend, it will remain open. This behaviour can be stopped or the interval extended with the `jack` `auto_client_disconnect` configuration option.
+* Other Jack congfiguration options include the ability to change the name of the client – `client_name` – and the names of the channels – `left_channel_name` and `right_channel_name`.
+
+Testing needed -- these arrangements may not conform to the norms of the Jack community, so all feedback gratefully received.
+
+Some information, e.g. the true output rate, not implemented yet.
+
 Version 3.3d5
 ====
-* Introducing a very rough implementation of a [Jack Audio](http://jackaudio.org) backend. The JACK Audio Connection Kit "provides a basic infrastructure for audio applications to communicate with each other and with audio hardware. Through JACK, users are enabled to build powerful systems for signal processing and music production." 
+* Introducing a very rough implementation of a Jack Audio backend. The JACK Audio Connection Kit "provides a basic infrastructure for audio applications to communicate with each other and with audio hardware. Through JACK, users are enabled to build powerful systems for signal processing and music production." 
 
 Version 3.3d4
 ====
