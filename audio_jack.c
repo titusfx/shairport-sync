@@ -193,26 +193,21 @@ void default_jack_error_callback(const char *desc) { debug(2, "jackd error: \"%s
 void default_jack_info_callback(const char *desc) { inform("jackd information: \"%s\"", desc); }
 
 int jack_is_running() {
-  int reply = -1;
+  int reply = -1; // meaning jack is not running
   // if the client is open and initialised, see if the status is "rolling"
   if (client_is_open) {
-    jack_position_t pos;
-    jack_transport_state_t transport_state = jack_transport_query(client, &pos);
-    if (transport_state == JackTransportRolling) {
-      // check if either port has a zero latency -- if so, then it's disconnected. This might be too
-      // much
-      jack_latency_range_t left_latency_range, right_latency_range;
-      jack_port_get_latency_range(left_port, JackPlaybackLatency, &left_latency_range);
-      jack_port_get_latency_range(right_port, JackPlaybackLatency, &right_latency_range);
 
-      if ((left_latency_range.min == 0) && (left_latency_range.max == 0) &&
-          (right_latency_range.min == 0) && (right_latency_range.max == 0)) {
-        reply = -3; // not connected
-      } else {
-        reply = 0;
-      }
+    // check if the ports have a zero latency -- if they both have, then it's disconnected.
+
+    jack_latency_range_t left_latency_range, right_latency_range;
+    jack_port_get_latency_range(left_port, JackPlaybackLatency, &left_latency_range);
+    jack_port_get_latency_range(right_port, JackPlaybackLatency, &right_latency_range);
+
+    if ((left_latency_range.min == 0) && (left_latency_range.max == 0) &&
+        (right_latency_range.min == 0) && (right_latency_range.max == 0)) {
+      reply = -2; // meaning Shairport Sync is not connected
     } else {
-      reply = -2; // not rolling
+      reply = 0; // meaning jack is open and Shairport Sync is connected to it
     }
   }
   return reply;
@@ -283,7 +278,7 @@ void *open_client_if_necessary_thread_function(void *arg) {
 
 int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
   config.audio_backend_latency_offset = 0;
-  config.audio_backend_buffer_desired_length = 0.15;
+  config.audio_backend_buffer_desired_length = 0.500;
   config.jack_auto_client_open_interval = 1; // check every second
 
   // get settings from settings file first, allow them to be overridden by
@@ -315,9 +310,9 @@ int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) 
      * we should try. */
     if (config_lookup_int(config.cfg, "jack.auto_client_open_interval", &value)) {
       if ((value < 0) || (value > 300))
-        debug(1,"Invalid jack auto_client_open_interval \"%sd\". It should be between 0 and 300, "
-            "default is %d.",
-            value, config.jack_auto_client_open_interval);
+        debug(1, "Invalid jack auto_client_open_interval \"%sd\". It should be between 0 and 300, "
+                 "default is %d.",
+              value, config.jack_auto_client_open_interval);
       else
         config.jack_auto_client_open_interval = value;
     }
@@ -351,11 +346,12 @@ int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) 
   if (config.jack_auto_client_open_interval != 0) {
     open_client_if_necessary_thread = malloc(sizeof(pthread_t));
     if (open_client_if_necessary_thread == NULL) {
-      debug(1,"Couldn't allocate space for jack server scanner thread");
+      debug(1, "Couldn't allocate space for jack server scanner thread");
       jack_client_open_if_needed();
     } else {
-      pthread_create(open_client_if_necessary_thread, NULL, open_client_if_necessary_thread_function,
-                   &config.jack_auto_client_open_interval);
+      pthread_create(open_client_if_necessary_thread, NULL,
+                     open_client_if_necessary_thread_function,
+                     &config.jack_auto_client_open_interval);
     }
   } else {
     jack_client_open_if_needed();
@@ -384,8 +380,8 @@ int jack_delay(long *the_delay) {
   int64_t delta = time_now - time_of_latest_transfer; // this is the time back to the last time data
                                                       // was transferred into a jack buffer
   size_t audio_occupancy_now = audio_occupancy;       // this is the buffer occupancy before any
-                                                // subsequent transfer because transfer is blocked
-                                                // by the mutex
+  // subsequent transfer because transfer is blocked
+  // by the mutex
   pthread_mutex_unlock(&buffer_mutex);
 
   int64_t frames_processed_since_latest_latency_check = (delta * 44100) >> 32;
