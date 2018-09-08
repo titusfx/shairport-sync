@@ -180,6 +180,7 @@ AC_ARG_WITH(soxr, [  --with-soxr = choose libsoxr for high-quality interpolation
     PKG_CHECK_MODULES(
         [SOXR], [soxr],
         [LIBS="${SOXR_LIBS} ${LIBS}"])
+    AC_DEFINE([HAVE_LIBSOXR],[1],[Define to 1 if you are including support for soxr interpolation])
   else
     AC_CHECK_LIB([avutil],[av_get_cpu_flags])
     if  test "x${ac_cv_lib_avutil_av_get_cpu_flags}" = xyes ; then
