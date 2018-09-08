@@ -8,9 +8,6 @@ Version 3.3d7
 * Relax the "rolling" requirement for Jack output to be sent.
 * Set the default buffer size for Jack to 0.5 seconds. This may be temporary!
 
-**Bug Fix**
-* Ensure the compiler flag HAVE_LIBSOXR is defined if the `--with-soxr` configuration flag is used and `pkg-config` is in use.
-
 Version 3.3d6
 ====
 An improved [Jack Audio](http://jackaudio.org) backend. Testing notes:
