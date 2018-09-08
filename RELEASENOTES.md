@@ -10,6 +10,7 @@ Version 3.3d7
 
 **Bug Fix**
 * Ensure the compiler flag HAVE_LIBSOXR is defined if the `--with-soxr` configuration flag is used and `pkg-config` is in use.
+
 Version 3.3d6
 ====
 An improved [Jack Audio](http://jackaudio.org) backend. Testing notes:
