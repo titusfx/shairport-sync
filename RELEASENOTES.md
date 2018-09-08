@@ -1,3 +1,9 @@
+Version 3.3d7
+====
+**Bug Fix**
+
+Ensure the compiler flag HAVE_LIBSOXR is defined if the `--with-soxr` configuration flag is used and `pkg-config` is in use.
+
 Version 3.3d6
 ====
 An improved [Jack Audio](http://jackaudio.org) backend. Testing notes:
@@ -20,7 +26,7 @@ Version 3.3d5
 Version 3.3d4
 ====
 * Sometimes `libsoxr` is built to rely on `libavutil`. With the present changes to `configure.ac`, if `libavutil` is present, link to it when linking to `libsoxr`, but if it's not present, don't link to it when linking to `libsoxr`.
-* Add `pgk_config` support to `libsoxr` selection.
+* Add `pgk-config` support to `libsoxr` selection.
 
 Thanks to [Jörg Krause](https://github.com/joerg-krause) for identifying these issues and proposing fixes.
 
