@@ -17,7 +17,7 @@ else
 endif
 endif
 
-if USE_APPLE_ALAC
+if USE_ALAC
   shairport_sync_SOURCES += apple_alac.cpp
 endif
 

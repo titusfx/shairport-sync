@@ -63,11 +63,11 @@
 #include "rtp.h"
 #include "rtsp.h"
 
-#ifdef HAVE_METADATA_HUB
+#ifdef CONFIG_METADATA_HUB
 #include "metadata_hub.h"
 #endif
 
-#ifdef HAVE_MQTT
+#ifdef HAVE_LIBMOSQUITTO
 #include "mqtt.h"
 #endif
 
@@ -1298,10 +1298,10 @@ void *metadata_thread_function(__attribute__((unused)) void *ignore) {
     pthread_cleanup_push(metadata_pack_cleanup_function, (void *)&pack);
     if (config.metadata_enabled) {
       metadata_process(pack.type, pack.code, pack.data, pack.length);
-#ifdef HAVE_METADATA_HUB
+#ifdef CONFIG_METADATA_HUB
       metadata_hub_process_metadata(pack.type, pack.code, pack.data, pack.length);
 #endif
-#ifdef HAVE_MQTT
+#ifdef HAVE_LIBMOSQUITTO
       if (config.mqtt_enabled) {
         mqtt_process_metadata(pack.type, pack.code, pack.data, pack.length);
       }

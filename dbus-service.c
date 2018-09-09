@@ -420,7 +420,7 @@ gboolean notify_drift_tolerance_callback(ShairportSync *skeleton,
 gboolean notify_alacdecoder_callback(ShairportSync *skeleton,
                                      __attribute__((unused)) gpointer user_data) {
   char *th = (char *)shairport_sync_get_alacdecoder(skeleton);
-#ifdef HAVE_APPLE_ALAC
+#ifdef HAVE_ALAC
   if (strcasecmp(th, "hammerton") == 0)
     config.use_apple_decoder = 0;
   else if (strcasecmp(th, "apple") == 0)
@@ -677,7 +677,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                                         config.loudness_reference_volume_db);
   shairport_sync_set_drift_tolerance(SHAIRPORT_SYNC(shairportSyncSkeleton), config.tolerance);
 
-#ifdef HAVE_APPLE_ALAC
+#ifdef HAVE_ALAC
   if (config.use_apple_decoder == 0) {
     shairport_sync_set_alacdecoder(SHAIRPORT_SYNC(shairportSyncSkeleton), "hammerton");
     debug(1, ">> ALACDecoder set to \"hammerton\"");

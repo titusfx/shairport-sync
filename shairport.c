@@ -64,11 +64,11 @@
 #include "rtp.h"
 #include "rtsp.h"
 
-#if defined(HAVE_DACP_CLIENT)
+#if defined(CONFIG_DACP_CLIENT)
 #include "dacp.h"
 #endif
 
-#if defined(HAVE_METADATA_HUB)
+#if defined(CONFIG_METADATA_HUB)
 #include "metadata_hub.h"
 #endif
 
@@ -76,7 +76,7 @@
 #include "dbus-service.h"
 #endif
 
-#ifdef HAVE_MQTT
+#ifdef HAVE_LIBMOSQUITTO
 #include "mqtt.h"
 #endif
 
@@ -331,7 +331,7 @@ int parse_options(int argc, char **argv) {
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
 
-#ifdef HAVE_METADATA_HUB
+#ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
   config.scan_interval_when_active =
       1; // number of seconds between DACP server scans when playing something
@@ -853,7 +853,7 @@ int parse_options(int argc, char **argv) {
     }
 #endif
 
-#ifdef CONFIG_MQTT
+#ifdef HAVE_LIBMOSQUITTO
     int tmpval = 0;
     config_set_lookup_bool(config.cfg, "mqtt.enabled", &config.mqtt_enabled);
     if (config.mqtt_enabled && !config.metadata_enabled) {
@@ -1007,7 +1007,7 @@ int parse_options(int argc, char **argv) {
   free(i3);
   free(vs);
 
-#ifdef CONFIG_MQTT
+#ifdef HAVE_LIBMOSQUITTO
   // mqtt topic was not set. As we have the service name just now, set it
   if (config.mqtt_topic == NULL) {
     int topic_length = 1 + strlen(config.service_name) + 1;
@@ -1018,7 +1018,7 @@ int parse_options(int argc, char **argv) {
 #endif
 
 // now, check and calculate the pid directory
-#ifdef USE_CUSTOM_PID_DIR
+#ifdef DEFINED_CUSTOM_PID_DIR
   char *use_this_pid_dir = PIDDIR;
 #else
   char *use_this_pid_dir = "/var/run/shairport-sync";
@@ -1124,7 +1124,7 @@ void exit_function() {
 void main_cleanup_handler(__attribute__((unused)) void *arg) {
 
   debug(1, "main cleanup handler called.");
-#ifdef HAVE_MQTT
+#ifdef HAVE_LIBMOSQUITTO
   if (config.mqtt_enabled) {
     // terminate_mqtt();
   }
@@ -1142,12 +1142,12 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
   pthread_join(dbus_thread, NULL);
 #endif
 
-#ifdef HAVE_DACP_CLIENT
+#ifdef CONFIG_DACP_CLIENT
   debug(1, "Stopping DACP Monitor");
   dacp_monitor_stop();
 #endif
 
-#ifdef HAVE_METADATA_HUB
+#ifdef CONFIG_METADATA_HUB
   debug(1, "Stopping metadata hub");
   metadata_hub_stop();
 #endif
@@ -1239,7 +1239,7 @@ int main(int argc, char **argv) {
   config.output_rate = 44100;            // default
   config.decoders_supported =
       1 << decoder_hammerton; // David Hammerton's decoder supported by default
-#ifdef HAVE_APPLE_ALAC
+#ifdef HAVE_ALAC
   config.decoders_supported += 1 << decoder_apple_alac;
 #endif
 
@@ -1595,12 +1595,12 @@ int main(int argc, char **argv) {
   metadata_init(); // create the metadata pipe if necessary
 #endif
 
-#ifdef HAVE_METADATA_HUB
+#ifdef CONFIG_METADATA_HUB
   // debug(1, "Initialising metadata hub");
   metadata_hub_init();
 #endif
 
-#ifdef HAVE_DACP_CLIENT
+#ifdef CONFIG_DACP_CLIENT
   // debug(1, "Requesting DACP Monitor");
   dacp_monitor_start();
 #endif
@@ -1617,7 +1617,7 @@ int main(int argc, char **argv) {
 #endif
 #endif
 
-#ifdef HAVE_MQTT
+#ifdef HAVE_LIBMOSQUITTO
   if (config.mqtt_enabled) {
     initialise_mqtt();
   }

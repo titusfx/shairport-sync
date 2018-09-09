@@ -67,18 +67,12 @@
 #include <FFTConvolver/convolver.h>
 #endif
 
-#ifdef HAVE_METADATA_HUB
+#ifdef CONFIG_METADATA_HUB
 #include "metadata_hub.h"
 #endif
 
-#ifdef HAVE_DACP_CLIENT
+#ifdef CONFIG_DACP_CLIENT
 #include "dacp.h"
-#include <glib.h>
-#endif
-
-#ifdef HAVE_DBUS
-#include "dbus-interface.h"
-#include "dbus-service.h"
 #endif
 
 #include "common.h"
@@ -88,7 +82,7 @@
 
 #include "alac.h"
 
-#ifdef HAVE_APPLE_ALAC
+#ifdef HAVE_ALAC
 #include "apple_alac.h"
 #endif
 
@@ -276,7 +270,7 @@ static int alac_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_co
     AES_cbc_encrypt(buf, packet, aeslen, &conn->aes, iv, AES_DECRYPT);
 #endif
     memcpy(packet + aeslen, buf + aeslen, len - aeslen);
-#ifdef HAVE_APPLE_ALAC
+#ifdef HAVE_ALAC
     if (config.use_apple_decoder) {
       if (conn->decoder_in_use != 1 << decoder_apple_alac) {
         debug(2, "Apple ALAC Decoder used on encrypted audio.");
@@ -295,7 +289,7 @@ static int alac_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_co
     }
   } else {
 // not encrypted
-#ifdef HAVE_APPLE_ALAC
+#ifdef HAVE_ALAC
     if (config.use_apple_decoder) {
       if (conn->decoder_in_use != 1 << decoder_apple_alac) {
         debug(2, "Apple ALAC Decoder used on unencrypted audio.");
@@ -437,7 +431,7 @@ static int init_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
   alac->setinfo_8a_rate = fmtp[11];
   alac_allocate_buffers(alac); // no pthread cancellation point in here
 
-#ifdef HAVE_APPLE_ALAC
+#ifdef HAVE_ALAC
   apple_alac_init(fmtp); // no pthread cancellation point in here
 #endif
 
@@ -446,7 +440,7 @@ static int init_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
 
 static void terminate_decoders(rtsp_conn_info *conn) {
   alac_free(conn->decoder_info);
-#ifdef HAVE_APPLE_ALAC
+#ifdef HAVE_ALAC
   apple_alac_terminate();
 #endif
 }
@@ -1443,7 +1437,7 @@ void player_thread_cleanup_handler(void *arg) {
              elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate);
   }
 
-#ifdef HAVE_DACP_CLIENT
+#ifdef CONFIG_DACP_CLIENT
 
   relinquish_dacp_server_information(
       conn); // say it doesn't belong to this conversation thread any more...
@@ -1694,7 +1688,7 @@ void *player_thread_func(void *arg) {
       0; // number of times in a row that there's been a serious sync error
 
 // stop looking elsewhere for DACP stuff
-#ifdef HAVE_DACP_CLIENT
+#ifdef CONFIG_DACP_CLIENT
   // debug(1, "Set dacp server info");
   // this does not have pthread cancellation points in it (assuming avahi doesn't)
   set_dacp_server_information(conn); //  this will start scanning when a port is registered by the

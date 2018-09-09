@@ -33,7 +33,7 @@
 #include "common.h"
 #include "mdns.h"
 #include "rtsp.h"
-#ifdef HAVE_DACP_CLIENT
+#ifdef CONFIG_DACP_CLIENT
 #include "dacp.h"
 #endif
 #include <string.h>
@@ -96,7 +96,7 @@ static void resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED AvahiIfIn
       dacpid += strlen("iTunes_Ctrl_");
       if (strcmp(dacpid, dbs->dacp_id) == 0) {
         debug(3, "Client's DACP port: %u.", port);
-#ifdef HAVE_DACP_CLIENT
+#ifdef CONFIG_DACP_CLIENT
         dacp_monitor_port_update_callback(dacpid, port);
 #endif
 #ifdef CONFIG_METADATA
@@ -140,7 +140,7 @@ static void browse_callback(AvahiServiceBrowser *b, AvahiIfIndex interface, Avah
     break;
   case AVAHI_BROWSER_REMOVE:
     debug(3, "(Browser) REMOVE: service '%s' of type '%s' in domain '%s'.", name, type, domain);
-#ifdef HAVE_DACP_CLIENT
+#ifdef CONFIG_DACP_CLIENT
     char *dacpid = strstr(name, "iTunes_Ctrl_");
     if (dacpid) {
       dacpid += strlen("iTunes_Ctrl_");

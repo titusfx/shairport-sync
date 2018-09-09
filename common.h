@@ -94,7 +94,7 @@ typedef struct {
   size_t metadata_sockmsglength;
   int get_coverart;
 #endif
-#ifdef CONFIG_MQTT
+#ifdef HAVE_LIBMOSQUITTO
   int mqtt_enabled;
   char *mqtt_hostname;
   int mqtt_port;
@@ -189,7 +189,7 @@ typedef struct {
   enum dbus_session_type mpris_service_bus_type;
 #endif
 
-#ifdef HAVE_METADATA_HUB
+#ifdef CONFIG_METADATA_HUB
   char *cover_art_cache_dir;
   int scan_interval_when_active;   // number of seconds between DACP server scans when playing
                                    // something (1)
