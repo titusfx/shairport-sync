@@ -587,8 +587,6 @@ int config_set_lookup_bool(config_t *cfg, char *where, int *dst) {
   }
 }
 
-
-
 void command_set_volume(double volume) {
   if (config.cmd_set_volume) {
     /*Spawn a child to run the program.*/

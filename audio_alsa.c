@@ -1005,7 +1005,7 @@ static int play(void *buf, int samples) {
           measurement_time = get_absolute_time_in_fp();
           frames_played_at_measurement_time = frames_sent_for_playing - fl;
           if (frame_index == start_measurement_from_this_frame) {
-            debug(1,"Start frame counting");
+            debug(1, "Start frame counting");
             frames_played_at_measurement_start_time = frames_played_at_measurement_time;
             measurement_start_time = measurement_time;
             measurement_data_is_valid = 1;

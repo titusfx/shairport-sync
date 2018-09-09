@@ -24,9 +24,10 @@ typedef struct {
   // block of samples
   int (*play)(void *buf, int samples);
   void (*stop)(void);
-  
+
   // may be null if no implemented
-  int (*is_running)(void); // if implemented, will return 0 if everything is okay, non-zero otherwise
+  int (*is_running)(
+      void); // if implemented, will return 0 if everything is okay, non-zero otherwise
 
   // may be null if not implemented
   void (*flush)(void);

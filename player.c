@@ -835,14 +835,14 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
         debug_mutex_unlock(&conn->flush_mutex, 3);
       }
     }
-    
+
     if (config.output->is_running)
-      if (config.output->is_running() !=0 ) { // if the back end isn't running for any reason
-        debug(3,"not running");
+      if (config.output->is_running() != 0) { // if the back end isn't running for any reason
+        debug(3, "not running");
         debug_mutex_lock(&conn->flush_mutex, 1000, 1);
         conn->flush_requested = 1;
         debug_mutex_unlock(&conn->flush_mutex, 3);
-     }
+      }
 
     debug_mutex_lock(&conn->flush_mutex, 1000, 1);
     if (conn->flush_requested == 1) {
@@ -907,7 +907,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                                    // player
           int have_sent_prefiller_silence = 1; // set true when we have sent some silent frames to
                                                // the DAC
-          /*                                    
+          /*
           int64_t reference_timestamp;
           uint64_t reference_timestamp_time, remote_reference_timestamp_time;
           get_reference_timestamp_stuff(&reference_timestamp, &reference_timestamp_time,
@@ -991,7 +991,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                 &should_be_time, conn);
 
             conn->first_packet_time_to_play = should_be_time;
-            
+
             // now, the size of the initial silence must be affected by the lead-in time.
             // it must be somewhat less than the lead-in time so that dynamic adjustments can be
             // made
@@ -1175,11 +1175,15 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
       // here, get the time to play the current frame.
 
-      if (have_timestamp_timing_information(conn)) {    // if we have a reference time
+      if (have_timestamp_timing_information(conn)) { // if we have a reference time
 
         uint64_t time_to_play;
-        frame_to_local_time(curframe->timestamp + conn->latency * conn->output_sample_ratio + (int64_t)(config.audio_backend_latency_offset * config.output_rate) - config.audio_backend_buffer_desired_length * config.output_rate, &time_to_play, conn);
-        
+        frame_to_local_time(
+            curframe->timestamp + conn->latency * conn->output_sample_ratio +
+                (int64_t)(config.audio_backend_latency_offset * config.output_rate) -
+                config.audio_backend_buffer_desired_length * config.output_rate,
+            &time_to_play, conn);
+
         if (local_time_now >= time_to_play) {
           do_wait = 0;
         }
