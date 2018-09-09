@@ -45,15 +45,15 @@
 #include "dacp.h"
 #include "metadata_hub.h"
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
 #include <mbedtls/md5.h>
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
 #include <polarssl/md5.h>
 #endif
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
 #include <openssl/md5.h>
 #endif
 
@@ -219,21 +219,21 @@ char *metadata_write_image_file(const char *buf, int len) {
   uint8_t img_md5[16];
 // uint8_t ap_md5[16];
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_SSL
   MD5_CTX ctx;
   MD5_Init(&ctx);
   MD5_Update(&ctx, buf, len);
   MD5_Final(img_md5, &ctx);
 #endif
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
   mbedtls_md5_context tctx;
   mbedtls_md5_starts(&tctx);
   mbedtls_md5_update(&tctx, (const unsigned char *)buf, len);
   mbedtls_md5_finish(&tctx, img_md5);
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
   md5_context tctx;
   md5_starts(&tctx);
   md5_update(&tctx, (const unsigned char *)buf, len);

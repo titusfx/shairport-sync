@@ -63,8 +63,7 @@ if  test "x${with_pkg_config}" = xyes ; then
   PKG_CHECK_MODULES(
       [POPT], [popt],
       [CFLAGS="${POPT_CFLAGS} ${CFLAGS}"
-      LIBS="${POPT_LIBS} ${LIBS}"
-       AC_DEFINE([HAVE_LIBPOPT],[1],[Define to 1 if you have the popt library])])
+      LIBS="${POPT_LIBS} ${LIBS}"])
 else
   AC_CHECK_LIB([popt],[poptGetContext], , AC_MSG_ERROR(libpopt needed))
 fi
@@ -111,16 +110,16 @@ AM_CONDITIONAL([INSTALL_CONFIG_FILES], [test "x$with_configfiles" = "xyes"])
 # Look for Apple ALAC flag
 AC_ARG_WITH(apple-alac, [  --with-apple-alac = include support for the Apple ALAC decoder],
   [AC_MSG_RESULT(>>Including the Apple ALAC Decoder)
-  REQUESTED_ALAC=1
+  AC_DEFINE([CONFIG_APPLE_ALAC], 1, [Include support for using the Apple ALAC Decoder])
+  REQUESTED_APPLE_ALAC=1
   if  test "x${with_pkg_config}" = xyes ; then
     PKG_CHECK_MODULES(
       [ALAC], [alac],
-      [LIBS="${ALAC_LIBS} ${LIBS}"
-       AC_DEFINE([HAVE_ALAC],[1],[Define to 1 if you are using the Apple ALAC Decoder])])
+      [LIBS="${ALAC_LIBS} ${LIBS}"])
   else
     AC_CHECK_LIB([alac], [BitBufferInit], , AC_MSG_ERROR(Apple ALAC Decoder support requires the alac library!))
   fi ])
-AM_CONDITIONAL([USE_ALAC], [test "x$REQUESTED_ALAC" = "x1"])
+AM_CONDITIONAL([USE_APPLE_ALAC], [test "x$REQUESTED_APPLE_ALAC" = "x1"])
 
 # Look for piddir flag
 AC_ARG_WITH(piddir, [ --with-piddir=<pathname> Specify a pathname to a directory in which to write the PID file.], [
@@ -143,17 +142,17 @@ AC_ARG_WITH(ssl, [ choose --with-ssl=openssl, --with-ssl=mbedtls or --with-ssl=p
     AC_MSG_ERROR(choose "openssl", "mbedtls" or "polarssl" encryption)
   fi
   if test "x${with_ssl}" = xopenssl ; then
+  AC_DEFINE([CONFIG_OPENSSL], 1, [Use the OpenSSL libraries for encryption and encoding and decoding])    
     if  test "x${with_pkg_config}" = xyes ; then
       PKG_CHECK_MODULES(
           [SSL], [libssl,libcrypto],
-          [LIBS="${SSL_LIBS} ${LIBS}"
-          AC_DEFINE([HAVE_LIBCRYPTO],[1],[Define to 1 if you have libcrypto])
-          AC_DEFINE([HAVE_LIBSSL],[1],[Define to 1 if you have libssl])])
+          [LIBS="${SSL_LIBS} ${LIBS}"])
     else
       AC_CHECK_LIB([crypto], [main], , AC_MSG_ERROR(libcrypto selected but the library cannot be found!))
       AC_CHECK_LIB([ssl], [main], , AC_MSG_ERROR(libssl selected but the library cannot be found!))
     fi
   elif test "x${with_ssl}" = xmbedtls ; then
+    AC_DEFINE([CONFIG_MBEDTLS], 1, [Use the mbed TLS libraries for encryption and encoding and decoding])    
     AC_CHECK_LIB([mbedtls],[mbedtls_ssl_init],,
 		[AC_MSG_ERROR([mbed tls support requires the mbedtls library -- libmbedtls-dev suggested],1)])
     AC_CHECK_LIB([mbedcrypto], [mbedtls_entropy_func],,
@@ -161,6 +160,7 @@ AC_ARG_WITH(ssl, [ choose --with-ssl=openssl, --with-ssl=mbedtls or --with-ssl=p
     AC_CHECK_LIB([mbedx509], [mbedtls_pk_init],,
                 [AC_MSG_ERROR([mbed tls support requires the mbedx509 library -- libmbedx509-0 suggested],1)])
   elif test "x${with_ssl}" = xpolarssl ; then
+    AC_DEFINE([CONFIG_POLARSSL], 1, [Use the PolarSSL libraries for encryption and encoding and decoding])    
     AC_CHECK_LIB([polarssl],[ssl_init], , AC_MSG_ERROR(PolarSSL is selected but the library cannot be found and is deprecated. Consider selecting mbed TLS instead using --with-ssl=mbedtls.))
   else
     AC_MSG_ERROR(unknown option "${with_ssl}"." Please choose with "openssl", "mbedtls" or "polarssl")
@@ -171,11 +171,10 @@ AC_ARG_WITH(ssl, [ choose --with-ssl=openssl, --with-ssl=mbedtls or --with-ssl=p
 AC_ARG_WITH(soxr, [  --with-soxr = choose libsoxr for high-quality interpolation], [
   AC_MSG_RESULT(>>Including support for soxr-based interpolation)
   if  test "x${with_pkg_config}" = xyes ; then
+    AC_DEFINE([CONFIG_SOXR], 1, [Include support for using the SoX Resampler library for interpolation])
     PKG_CHECK_MODULES(
         [SOXR], [soxr],
-        [LIBS="${SOXR_LIBS} ${LIBS}"
-          AC_DEFINE([HAVE_LIBSOXR],[1],[Define to 1 if you are including support for soxr interpolation])])
-    
+        [LIBS="${SOXR_LIBS} ${LIBS}"])
   else
     AC_CHECK_LIB([avutil],[av_get_cpu_flags])
     if  test "x${ac_cv_lib_avutil_av_get_cpu_flags}" = xyes ; then
@@ -218,8 +217,7 @@ AC_ARG_WITH(alsa, [  --with-alsa = choose ALSA API support (GNU/Linux only)],
   if  test "x${with_pkg_config}" = xyes ; then
     PKG_CHECK_MODULES(
       [ALSA], [alsa],
-      [LIBS="${ALSA_LIBS} ${LIBS}"
-       AC_DEFINE([HAVE_LIBASOUND],[1],[Define to 1 if you have ALSA])])
+      [LIBS="${ALSA_LIBS} ${LIBS}"])
   else
     AC_CHECK_LIB([asound], [snd_pcm_open], , AC_MSG_ERROR(ALSA support requires the asound library!))
   fi ])
@@ -233,8 +231,7 @@ AC_ARG_WITH(jack, [  --with-jack = include a Jack Audio Connection Kit (jack) ba
   if  test "x${with_pkg_config}" = xyes ; then
     PKG_CHECK_MODULES(
       [JACK], [jack],
-      [LIBS="${JACK_LIBS} ${LIBS}"
-      AC_DEFINE([HAVE_JACK],[1],[Define to 1 if you have Jack audio])],
+      [LIBS="${JACK_LIBS} ${LIBS}"],
       [AC_MSG_ERROR(Jack Audio Connection Kit support requires the jack library -- libjack-dev suggested!)])
   else
     AC_CHECK_LIB([jack], [jack_client_open], , AC_MSG_ERROR(Jack Audio Connection Kit support requires the jack library -- libjack-dev suggested!))
@@ -293,15 +290,15 @@ AM_CONDITIONAL([USE_CONVOLUTION], [test "x$REQUESTED_CONVOLUTION" = "x1"])
 AC_ARG_WITH(dns_sd, [  --with-dns_sd = choose dns_sd mDNS support], [
   AC_MSG_RESULT(>>Including dns_sd for mDNS support)
   REQUESTED_DNS_SD=1
-  AC_DEFINE([CONFIG_HAVE_DNS_SD_H], 1, [Needed by the compiler.])
+  AC_DEFINE([CONFIG_DNS_SD], 1, [Needed by the compiler.])
   AC_SEARCH_LIBS([DNSServiceRefDeallocate], [dns_sd], , AC_MSG_ERROR(dns_sd support requires the dns_sd library!))], )
 AM_CONDITIONAL([USE_DNS_SD], [test "x$REQUESTED_DNS_SD" = "x1"])
 
 # Look for dbus flag
 AC_ARG_WITH(dbus-interface, [  --with-dbus-interface = include support for the native Shairport Sync D-Bus interface], [
   AC_MSG_RESULT(>>Including dbus support)
+  AC_DEFINE([CONFIG_DBUS_INTERFACE], 1, [Include support for the native Shairport Sync D-Bus interface])
   REQUESTED_DBUS=1
-  AC_DEFINE([HAVE_DBUS], 1, [Needed by the compiler.])
   PKG_CHECK_MODULES([GIO_UNIX], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${GIO_UNIX_CFLAGS} ${CFLAGS}" LIBS="${GIO_UNIX_LIBS} ${LIBS}"],[AC_MSG_ERROR(dbus messaging support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
   ], )
 AM_CONDITIONAL([USE_DBUS], [test "x$REQUESTED_DBUS" = "x1"])
@@ -310,16 +307,15 @@ AM_CONDITIONAL([USE_DBUS], [test "x$REQUESTED_DBUS" = "x1"])
 AC_ARG_WITH(dbus-test-client, [  --with-dbus-test-client = compile dbus test client], [
   AC_MSG_RESULT(>>Including dbus test client)
   REQUESTED_DBUS_CLIENT=1
-  AC_DEFINE([HAVE_DBUS_CLIENT], 1, [Needed by the compiler.])
   PKG_CHECK_MODULES([GIO_UNIX], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${GIO_UNIX_CFLAGS} ${CFLAGS}" LIBS="${GIO_UNIX_LIBS} ${LIBS}"],[AC_MSG_ERROR(dbus client support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
   ], )
 AM_CONDITIONAL([USE_DBUS_CLIENT], [test "x$REQUESTED_DBUS_CLIENT" = "x1"])
 
 # Look for mpris flag
-AC_ARG_WITH(mpris-interface, [  --with-mpris-interface = include support for a Shairport Sync D-Bus interface conforming to the MPRIS standard], [
+AC_ARG_WITH(mpris-interface, [  --with-mpris-interface = include support for a D-Bus interface conforming to the MPRIS standard], [
   AC_MSG_RESULT(>>Including the MPRIS D-Bus Interface)
+  AC_DEFINE([CONFIG_MPRIS_INTERFACE], 1, [Include support for a D-Bus interface conforming to the MPRIS standard])
   REQUESTED_MPRIS=1
-  AC_DEFINE([HAVE_MPRIS], 1, [Needed by the compiler.])
   PKG_CHECK_MODULES([GIO_UNIX], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${GIO_UNIX_CFLAGS} ${CFLAGS}" LIBS="${GIO_UNIX_LIBS} ${LIBS}"],[AC_MSG_ERROR(dbus messaging support for mpris requires the glib 2.0 library -- libglib2.0-dev suggested!)])
   ], )
 AM_CONDITIONAL([USE_MPRIS], [test "x$REQUESTED_MPRIS" = "x1"])
@@ -328,15 +324,13 @@ AM_CONDITIONAL([USE_MPRIS], [test "x$REQUESTED_MPRIS" = "x1"])
 AC_ARG_WITH(mpris-test-client, [  --with-mpris-test-client = compile mpris test client], [
   AC_MSG_RESULT(>>Including mpris test client)
   REQUESTED_MPRIS_CLIENT=1
-  AC_DEFINE([HAVE_MPRIS_CLIENT], 1, [Needed by the compiler.])
   PKG_CHECK_MODULES([GIO_UNIX], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${GIO_UNIX_CFLAGS} ${CFLAGS}" LIBS="${GIO_UNIX_LIBS} ${LIBS}"],[AC_MSG_ERROR(mpris client support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
   ], )
 AM_CONDITIONAL([USE_MPRIS_CLIENT], [test "x$REQUESTED_MPRIS_CLIENT" = "x1"])
 
-#AM_CONDITIONAL([USE_DBUS_CORE_AND_DACP], [test "x$REQUESTED_MPRIS" = "x1" -o "x$REQUESTED_DBUS" = "x1"])
-
 # Look for mqtt flag
-AC_ARG_WITH(mqtt-client, [  --with-mqtt-client = include support for the native Shairport Sync MQTT interface], [
+AC_ARG_WITH(mqtt-client, [  --with-mqtt-client = include a client for MQTT -- the Message Queuing Telemetry Transport protocol], [
+  AC_DEFINE([CONFIG_MQTT], 1, [Include a client for MQTT, the Message Queuing Telemetry Transport protocol])
   AC_MSG_RESULT(>>Including MQTT support)
   REQUESTED_MQTT=1
   AC_CHECK_LIB([mosquitto], [mosquitto_lib_init], , AC_MSG_ERROR(MQTT support requires the mosquitto library -- libmosquitto-dev suggested!))

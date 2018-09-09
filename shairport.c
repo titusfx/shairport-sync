@@ -43,19 +43,19 @@
 
 #include "config.h"
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
 #include <mbedtls/md5.h>
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
 #include <polarssl/md5.h>
 #endif
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
 #include <openssl/md5.h>
 #endif
 
-#if defined(HAVE_DBUS)
+#if defined(CONFIG_DBUS_INTERFACE)
 #include <glib.h>
 #endif
 
@@ -72,15 +72,15 @@
 #include "metadata_hub.h"
 #endif
 
-#ifdef HAVE_DBUS
+#ifdef CONFIG_DBUS_INTERFACE
 #include "dbus-service.h"
 #endif
 
-#ifdef HAVE_LIBMOSQUITTO
+#ifdef CONFIG_MQTT
 #include "mqtt.h"
 #endif
 
-#ifdef HAVE_MPRIS
+#ifdef CONFIG_MPRIS_INTERFACE
 #include "mpris-service.h"
 #endif
 
@@ -434,7 +434,7 @@ int parse_options(int argc, char **argv) {
         if (strcasecmp(str, "basic") == 0)
           config.packet_stuffing = ST_basic;
         else if (strcasecmp(str, "soxr") == 0)
-#ifdef HAVE_LIBSOXR
+#ifdef CONFIG_SOXR
           config.packet_stuffing = ST_soxr;
 #else
           die("The soxr option not available because this version of shairport-sync was built "
@@ -827,7 +827,7 @@ int parse_options(int argc, char **argv) {
             config_error_file(&config_file_stuff), config_error_text(&config_file_stuff));
       }
     }
-#if defined(HAVE_DBUS)
+#if defined(CONFIG_DBUS_INTERFACE)
     /* Get the dbus service sbus setting. */
     if (config_lookup_string(config.cfg, "general.dbus_service_bus", &str)) {
       if (strcasecmp(str, "system") == 0)
@@ -840,7 +840,7 @@ int parse_options(int argc, char **argv) {
     }
 #endif
 
-#if defined(HAVE_MPRIS)
+#if defined(CONFIG_MPRIS_INTERFACE)
     /* Get the mpris service sbus setting. */
     if (config_lookup_string(config.cfg, "general.mpris_service_bus", &str)) {
       if (strcasecmp(str, "system") == 0)
@@ -853,7 +853,7 @@ int parse_options(int argc, char **argv) {
     }
 #endif
 
-#ifdef HAVE_LIBMOSQUITTO
+#ifdef CONFIG_MQTT
     int tmpval = 0;
     config_set_lookup_bool(config.cfg, "mqtt.enabled", &config.mqtt_enabled);
     if (config.mqtt_enabled && !config.metadata_enabled) {
@@ -954,7 +954,7 @@ int parse_options(int argc, char **argv) {
       if (strcmp(stuffing, "basic") == 0)
         config.packet_stuffing = ST_basic;
       else if (strcmp(stuffing, "soxr") == 0)
-#ifdef HAVE_LIBSOXR
+#ifdef CONFIG_SOXR
         config.packet_stuffing = ST_soxr;
 #else
         die("The soxr option not available because this version of shairport-sync was built "
@@ -1007,7 +1007,7 @@ int parse_options(int argc, char **argv) {
   free(i3);
   free(vs);
 
-#ifdef HAVE_LIBMOSQUITTO
+#ifdef CONFIG_MQTT
   // mqtt topic was not set. As we have the service name just now, set it
   if (config.mqtt_topic == NULL) {
     int topic_length = 1 + strlen(config.service_name) + 1;
@@ -1032,7 +1032,7 @@ int parse_options(int argc, char **argv) {
   return optind + 1;
 }
 
-#if defined(HAVE_DBUS) || defined(HAVE_MPRIS)
+#if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
 GMainLoop *g_main_loop;
 
 pthread_t dbus_thread;
@@ -1124,17 +1124,17 @@ void exit_function() {
 void main_cleanup_handler(__attribute__((unused)) void *arg) {
 
   debug(1, "main cleanup handler called.");
-#ifdef HAVE_LIBMOSQUITTO
+#ifdef CONFIG_MQTT
   if (config.mqtt_enabled) {
     // terminate_mqtt();
   }
 #endif
 
-#if defined(HAVE_DBUS) || defined(HAVE_MPRIS)
-#ifdef HAVE_MPRIS
+#if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
+#ifdef CONFIG_MPRIS_INTERFACE
 // stop_mpris_service();
 #endif
-#ifdef HAVE_DBUS
+#ifdef CONFIG_DBUS_INTERFACE
   stop_dbus_service();
 #endif
   debug(1, "Stopping DBUS Loop Thread");
@@ -1239,7 +1239,7 @@ int main(int argc, char **argv) {
   config.output_rate = 44100;            // default
   config.decoders_supported =
       1 << decoder_hammerton; // David Hammerton's decoder supported by default
-#ifdef HAVE_ALAC
+#ifdef CONFIG_APPLE_ALAC
   config.decoders_supported += 1 << decoder_apple_alac;
 #endif
 
@@ -1570,21 +1570,21 @@ int main(int argc, char **argv) {
 
   uint8_t ap_md5[16];
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
   MD5_Init(&ctx);
   MD5_Update(&ctx, config.service_name, strlen(config.service_name));
   MD5_Final(ap_md5, &ctx);
 #endif
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
   mbedtls_md5_context tctx;
   mbedtls_md5_starts(&tctx);
   mbedtls_md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
   mbedtls_md5_finish(&tctx, ap_md5);
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
   md5_context tctx;
   md5_starts(&tctx);
   md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
@@ -1605,19 +1605,19 @@ int main(int argc, char **argv) {
   dacp_monitor_start();
 #endif
 
-#if defined(HAVE_DBUS) || defined(HAVE_MPRIS)
+#if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
   // Start up DBUS services after initial settings are all made
   // debug(1, "Starting up D-Bus services");
   pthread_create(&dbus_thread, NULL, &dbus_thread_func, NULL);
-#ifdef HAVE_DBUS
+#ifdef CONFIG_DBUS_INTERFACE
   start_dbus_service();
 #endif
-#ifdef HAVE_MPRIS
+#ifdef CONFIG_MPRIS_INTERFACE
   start_mpris_service();
 #endif
 #endif
 
-#ifdef HAVE_LIBMOSQUITTO
+#ifdef CONFIG_MQTT
   if (config.mqtt_enabled) {
     initialise_mqtt();
   }

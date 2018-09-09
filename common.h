@@ -23,7 +23,7 @@
 #define SAFAMILY sa_family
 #endif
 
-#if defined(HAVE_DBUS) || defined(HAVE_MPRIS)
+#if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
 enum dbus_session_type {
   DBT_system = 0, // use the session bus
   DBT_session,    // use the system bus
@@ -94,7 +94,7 @@ typedef struct {
   size_t metadata_sockmsglength;
   int get_coverart;
 #endif
-#ifdef HAVE_LIBMOSQUITTO
+#ifdef CONFIG_MQTT
   int mqtt_enabled;
   char *mqtt_hostname;
   int mqtt_port;
@@ -182,10 +182,10 @@ typedef struct {
   int loudness;
   float loudness_reference_volume_db;
   int alsa_use_hardware_mute;
-#if defined(HAVE_DBUS)
+#if defined(CONFIG_DBUS_INTERFACE)
   enum dbus_session_type dbus_service_bus_type;
 #endif
-#if defined(HAVE_MPRIS)
+#if defined(CONFIG_MPRIS_INTERFACE)
   enum dbus_session_type mpris_service_bus_type;
 #endif
 

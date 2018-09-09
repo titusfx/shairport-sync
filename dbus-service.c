@@ -420,7 +420,7 @@ gboolean notify_drift_tolerance_callback(ShairportSync *skeleton,
 gboolean notify_alacdecoder_callback(ShairportSync *skeleton,
                                      __attribute__((unused)) gpointer user_data) {
   char *th = (char *)shairport_sync_get_alacdecoder(skeleton);
-#ifdef HAVE_ALAC
+#ifdef CONFIG_APPLE_ALAC
   if (strcasecmp(th, "hammerton") == 0)
     config.use_apple_decoder = 0;
   else if (strcasecmp(th, "apple") == 0)
@@ -451,7 +451,7 @@ gboolean notify_alacdecoder_callback(ShairportSync *skeleton,
 gboolean notify_interpolation_callback(ShairportSync *skeleton,
                                        __attribute__((unused)) gpointer user_data) {
   char *th = (char *)shairport_sync_get_interpolation(skeleton);
-#ifdef HAVE_LIBSOXR
+#ifdef CONFIG_SOXR
   if (strcasecmp(th, "basic") == 0)
     config.packet_stuffing = ST_basic;
   else if (strcasecmp(th, "soxr") == 0)
@@ -677,7 +677,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                                         config.loudness_reference_volume_db);
   shairport_sync_set_drift_tolerance(SHAIRPORT_SYNC(shairportSyncSkeleton), config.tolerance);
 
-#ifdef HAVE_ALAC
+#ifdef CONFIG_APPLE_ALAC
   if (config.use_apple_decoder == 0) {
     shairport_sync_set_alacdecoder(SHAIRPORT_SYNC(shairportSyncSkeleton), "hammerton");
     debug(1, ">> ALACDecoder set to \"hammerton\"");
@@ -691,7 +691,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 
 #endif
 
-#ifdef HAVE_LIBSOXR
+#ifdef CONFIG_SOXR
   if (config.packet_stuffing == ST_basic) {
     shairport_sync_set_interpolation(SHAIRPORT_SYNC(shairportSyncSkeleton), "basic");
     debug(1, ">> interpolation set to \"basic\" (soxr support built in)");

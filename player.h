@@ -7,17 +7,17 @@
 #include "config.h"
 #include "definitions.h"
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
 #include <mbedtls/aes.h>
 #include <mbedtls/havege.h>
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
 #include <polarssl/aes.h>
 #include <polarssl/havege.h>
 #endif
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
 #include <openssl/aes.h>
 #endif
 
@@ -140,15 +140,15 @@ typedef struct {
   uint64_t time_of_last_audio_packet;
   seq_t ab_read, ab_write;
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
   mbedtls_aes_context dctx;
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
   aes_context dctx;
 #endif
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
   AES_KEY aes;
 #endif
 

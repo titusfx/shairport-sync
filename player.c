@@ -45,21 +45,21 @@
 
 #include "config.h"
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
 #include <mbedtls/aes.h>
 #include <mbedtls/havege.h>
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
 #include <polarssl/aes.h>
 #include <polarssl/havege.h>
 #endif
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
 #include <openssl/aes.h>
 #endif
 
-#ifdef HAVE_LIBSOXR
+#ifdef CONFIG_SOXR
 #include <soxr.h>
 #endif
 
@@ -82,7 +82,7 @@
 
 #include "alac.h"
 
-#ifdef HAVE_ALAC
+#ifdef CONFIG_APPLE_ALAC
 #include "apple_alac.h"
 #endif
 
@@ -260,17 +260,17 @@ static int alac_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_co
     unsigned char iv[16];
     int aeslen = len & ~0xf;
     memcpy(iv, conn->stream.aesiv, sizeof(iv));
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
     mbedtls_aes_crypt_cbc(&conn->dctx, MBEDTLS_AES_DECRYPT, aeslen, iv, buf, packet);
 #endif
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
     aes_crypt_cbc(&conn->dctx, AES_DECRYPT, aeslen, iv, buf, packet);
 #endif
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
     AES_cbc_encrypt(buf, packet, aeslen, &conn->aes, iv, AES_DECRYPT);
 #endif
     memcpy(packet + aeslen, buf + aeslen, len - aeslen);
-#ifdef HAVE_ALAC
+#ifdef CONFIG_APPLE_ALAC
     if (config.use_apple_decoder) {
       if (conn->decoder_in_use != 1 << decoder_apple_alac) {
         debug(2, "Apple ALAC Decoder used on encrypted audio.");
@@ -289,7 +289,7 @@ static int alac_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_co
     }
   } else {
 // not encrypted
-#ifdef HAVE_ALAC
+#ifdef CONFIG_APPLE_ALAC
     if (config.use_apple_decoder) {
       if (conn->decoder_in_use != 1 << decoder_apple_alac) {
         debug(2, "Apple ALAC Decoder used on unencrypted audio.");
@@ -431,7 +431,7 @@ static int init_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
   alac->setinfo_8a_rate = fmtp[11];
   alac_allocate_buffers(alac); // no pthread cancellation point in here
 
-#ifdef HAVE_ALAC
+#ifdef CONFIG_APPLE_ALAC
   apple_alac_init(fmtp); // no pthread cancellation point in here
 #endif
 
@@ -440,7 +440,7 @@ static int init_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
 
 static void terminate_decoders(rtsp_conn_info *conn) {
   alac_free(conn->decoder_info);
-#ifdef HAVE_ALAC
+#ifdef CONFIG_APPLE_ALAC
   apple_alac_terminate();
 #endif
 }
@@ -1320,7 +1320,7 @@ static int stuff_buffer_basic_32(int32_t *inptr, int length, enum sps_format_t l
   return length + tstuff;
 }
 
-#ifdef HAVE_LIBSOXR
+#ifdef CONFIG_SOXR
 // this takes an array of signed 32-bit integers and
 // (a) uses libsoxr to
 // resample the array to have one more or one less frame, as specified in
@@ -1520,17 +1520,17 @@ void *player_thread_func(void *arg) {
   init_buffer(conn); // will need a corresponding deallocation
 
   if (conn->stream.encrypted) {
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
     memset(&conn->dctx, 0, sizeof(mbedtls_aes_context));
     mbedtls_aes_setkey_dec(&conn->dctx, conn->stream.aeskey, 128);
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
     memset(&conn->dctx, 0, sizeof(aes_context));
     aes_setkey_dec(&conn->dctx, conn->stream.aeskey, 128);
 #endif
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
     AES_set_decrypt_key(conn->stream.aeskey, 128, &conn->aes);
 #endif
   }
@@ -2204,7 +2204,7 @@ void *player_thread_func(void *arg) {
                     stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
                                           conn->outbuf, amount_to_stuff, enable_dither, conn);
               }
-#ifdef HAVE_LIBSOXR
+#ifdef CONFIG_SOXR
               else if (config.packet_stuffing == ST_soxr) {
                 //                if (amount_to_stuff) debug(1,"Soxr stuff...");
                 play_samples = stuff_buffer_soxr_32((int32_t *)conn->tbuf, (int32_t *)conn->sbuf,

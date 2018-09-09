@@ -2,6 +2,7 @@
  * Utility routines. This file is part of Shairport.
  * Copyright (c) James Laird 2013
  * The volume to attenuation function vol2attn copyright (c) Mike Brady 2014
+ * Further changes (c) Mike Brady 2014 -- 2018
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -46,7 +47,7 @@
 #include <mach/mach_time.h>
 #endif
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
 #include <openssl/evp.h>
@@ -54,7 +55,7 @@
 #include <openssl/rsa.h>
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
 #include "polarssl/ctr_drbg.h"
 #include "polarssl/entropy.h"
 #include <polarssl/base64.h>
@@ -67,7 +68,7 @@
 #endif
 #endif
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
 #include <mbedtls/base64.h>
@@ -247,7 +248,7 @@ int mkpath(const char *path, mode_t mode) {
   return (status);
 }
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
 char *base64_enc(uint8_t *input, int length) {
   char *buf = NULL;
   size_t dlen = 0;
@@ -300,7 +301,7 @@ uint8_t *base64_dec(char *input, int *outlen) {
 }
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
 char *base64_enc(uint8_t *input, int length) {
   char *buf = NULL;
   size_t dlen = 0;
@@ -353,7 +354,7 @@ uint8_t *base64_dec(char *input, int *outlen) {
 }
 #endif
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
 char *base64_enc(uint8_t *input, int length) {
   BIO *bmem, *b64;
   BUF_MEM *bptr;
@@ -432,7 +433,7 @@ static char super_secret_key[] =
     "2gG0N5hvJpzwwhbhXqFKA4zaaSrw622wDniAK5MlIE0tIAKKP4yxNGjoD2QYjhBGuhvkWKY=\n"
     "-----END RSA PRIVATE KEY-----\0";
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
 uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
   RSA *rsa = NULL;
   if (!rsa) {
@@ -456,7 +457,7 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
 }
 #endif
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
 uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
   mbedtls_pk_context pkctx;
   mbedtls_rsa_context *trsa;
@@ -513,7 +514,7 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
 }
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
 uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
   rsa_context trsa;
   const char *pers = "rsa_encrypt";
@@ -1164,16 +1165,16 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *filename, const int 
 void pthread_cleanup_debug_mutex_unlock(void *arg) { pthread_mutex_unlock((pthread_mutex_t *)arg); }
 
 char *get_version_string() {
-  char *version_string = malloc(200);
+  char *version_string = malloc(1024);
   if (version_string) {
     strcpy(version_string, PACKAGE_VERSION);
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
     strcat(version_string, "-mbedTLS");
 #endif
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
     strcat(version_string, "-PolarSSL");
 #endif
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
     strcat(version_string, "-OpenSSL");
 #endif
 #ifdef CONFIG_TINYSVCMDNS
@@ -1209,7 +1210,7 @@ char *get_version_string() {
 #ifdef CONFIG_PIPE
     strcat(version_string, "-pipe");
 #endif
-#ifdef HAVE_LIBSOXR
+#ifdef CONFIG_SOXR
     strcat(version_string, "-soxr");
 #endif
 #ifdef CONFIG_CONVOLUTION
@@ -1218,13 +1219,13 @@ char *get_version_string() {
 #ifdef CONFIG_METADATA
     strcat(version_string, "-metadata");
 #endif
-#ifdef HAVE_LIBMOSQUITTO
+#ifdef CONFIG_MQTT
     strcat(version_string, "-mqtt");
 #endif
-#ifdef HAVE_DBUS
+#ifdef CONFIG_DBUS_INTERFACE
     strcat(version_string, "-dbus");
 #endif
-#ifdef HAVE_MPRIS
+#ifdef CONFIG_MPRIS_INTERFACE
     strcat(version_string, "-mpris");
 #endif
     strcat(version_string, "-sysconfdir:");

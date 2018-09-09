@@ -46,15 +46,15 @@
 
 #include "config.h"
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
 #include <openssl/md5.h>
 #endif
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
 #include <mbedtls/md5.h>
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
 #include <polarssl/md5.h>
 #endif
 
@@ -67,7 +67,7 @@
 #include "metadata_hub.h"
 #endif
 
-#ifdef HAVE_LIBMOSQUITTO
+#ifdef CONFIG_MQTT
 #include "mqtt.h"
 #endif
 
@@ -1301,7 +1301,7 @@ void *metadata_thread_function(__attribute__((unused)) void *ignore) {
 #ifdef CONFIG_METADATA_HUB
       metadata_hub_process_metadata(pack.type, pack.code, pack.data, pack.length);
 #endif
-#ifdef HAVE_LIBMOSQUITTO
+#ifdef CONFIG_MQTT
       if (config.mqtt_enabled) {
         mqtt_process_metadata(pack.type, pack.code, pack.data, pack.length);
       }
@@ -1836,7 +1836,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
 
   uint8_t digest_urp[16], digest_mu[16], digest_total[16];
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
 
   MD5_Init(&ctx);
@@ -1853,7 +1853,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
   MD5_Final(digest_mu, &ctx);
 #endif
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
   mbedtls_md5_context tctx;
   mbedtls_md5_starts(&tctx);
   mbedtls_md5_update(&tctx, (const unsigned char *)username, strlen(username));
@@ -1869,7 +1869,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
   mbedtls_md5_finish(&tctx, digest_mu);
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
   md5_context tctx;
   md5_starts(&tctx);
   md5_update(&tctx, (const unsigned char *)username, strlen(username));
@@ -1890,7 +1890,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
   for (i = 0; i < 16; i++)
     snprintf((char *)buf + 2 * i, 3, "%02x", digest_urp[i]);
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
   MD5_Init(&ctx);
   MD5_Update(&ctx, buf, 32);
   MD5_Update(&ctx, ":", 1);
@@ -1902,7 +1902,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
   MD5_Final(digest_total, &ctx);
 #endif
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
   mbedtls_md5_starts(&tctx);
   mbedtls_md5_update(&tctx, buf, 32);
   mbedtls_md5_update(&tctx, (unsigned char *)":", 1);
@@ -1914,7 +1914,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
   mbedtls_md5_finish(&tctx, digest_total);
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
   md5_starts(&tctx);
   md5_update(&tctx, buf, 32);
   md5_update(&tctx, (unsigned char *)":", 1);
