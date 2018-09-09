@@ -1,3 +1,7 @@
+Version 3.3d9
+====
+Many changes to compilation and linking flags. Stop using `HAVE_*` flags except where necessary, use `CONFIG_*` for optional stuff, use `HAS_*` for immediate definitions to be used during configuration, use `USE_*` for Automake definitions. Probably introduced bugs, sigh.
+
 Version 3.3d8
 ====
 **Bug Fix**
