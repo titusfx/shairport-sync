@@ -326,7 +326,15 @@ alsa =
 };
 ```
 
-The `pa` group is used to specify settings relevant to the PulseAudio backend. You can set the "Application Name" that will appear in the "Sound" control panel.
+The `pa` group is used to specify settings relevant to the PulseAudio backend. You can set the "Application Name" that will appear in the "Sound" control panel. You can also set the sink name that audio will be pushed to. Here's an example `pa` group configuration:
+
+```
+pa = 
+{
+  application_name = "Shairport Sync - Bedroom";
+  sink = "server_bedroom"; // Sink name or ID. If not specified, the default sink will be used.
+};
+```
 
 Shairport Sync can run programs just before it starts to play an audio stream and just after it finishes. You specify them using the `sessioncontrol` group settings `run_this_before_play_begins` and `run_this_after_play_ends`. This is to facilitate situations where something has to be done before and after playing, e.g. switching on an amplifier beforehand and switching it off afterwards. Set the `wait_for_completion` value to `"yes"` for Shairport Sync to wait until the respective commands have been completed before continuing.
 
