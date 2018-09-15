@@ -84,7 +84,9 @@ typedef struct {
 #ifdef CONFIG_PA
   char *pa_application_name; // the name under which Shairport Sync shows up as an "Application" in
                              // the Sound Preferences in most desktop Linuxes.
-// Defaults to "Shairport Sync". Shairport Sync must be playing to see it.
+                             // Defaults to "Shairport Sync". Shairport Sync must be playing to see it.
+
+  char *pa_sink;    // the name (or id) of the sink that Shairport Sync will play on.
 #endif
 #ifdef CONFIG_METADATA
   int metadata_enabled;
