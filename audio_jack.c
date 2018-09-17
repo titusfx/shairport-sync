@@ -49,7 +49,7 @@ size_t audio_occupancy; // this is in frames, not bytes. A frame is a left and
                         // right sample, each 16 bits, hence 4 bytes
 pthread_t *open_client_if_necessary_thread = NULL;
 
-int init(int, char **);
+int jack_init(int, char **);
 void jack_deinit(void);
 void jack_start(int, int);
 int play(void *, int);
@@ -60,7 +60,7 @@ void jack_flush(void);
 
 audio_output audio_jack = {.name = "jack",
                            .help = NULL,
-                           .init = &init,
+                           .init = &jack_init,
                            .deinit = &jack_deinit,
                            .start = &jack_start,
                            .stop = &jack_stop,
@@ -80,6 +80,7 @@ long offset = 0;
 int client_is_open;
 jack_client_t *client;
 jack_nframes_t sample_rate;
+jack_nframes_t jack_latency;
 
 jack_latency_range_t latest_left_latency_range, latest_right_latency_range;
 int64_t time_of_latest_transfer;
@@ -192,6 +193,23 @@ void default_jack_error_callback(const char *desc) { debug(2, "jackd error: \"%s
 
 void default_jack_info_callback(const char *desc) { inform("jackd information: \"%s\"", desc); }
 
+void default_jack_set_latency_callback(jack_latency_callback_mode_t mode,
+                                       __attribute__((unused)) void *arg) {
+  if (mode == JackPlaybackLatency) {
+    jack_latency_range_t left_latency_range, right_latency_range;
+    jack_port_get_latency_range(left_port, JackPlaybackLatency, &left_latency_range);
+    jack_port_get_latency_range(right_port, JackPlaybackLatency, &right_latency_range);
+
+    jack_nframes_t b_latency = (left_latency_range.min + left_latency_range.max) / 2;
+    if (b_latency == 0)
+      b_latency = (right_latency_range.min + right_latency_range.max) / 2;
+    // jack_latency = b_latency; // actually, we are not interested in the latency of the jack
+    // devices connected...
+    jack_latency = 0;
+    debug(1, "playback latency callback: %" PRIu32 ".", jack_latency);
+  }
+}
+
 int jack_is_running() {
   int reply = -1; // meaning jack is not running
   // if the client is open and initialised, see if the status is "rolling"
@@ -203,12 +221,12 @@ int jack_is_running() {
     jack_port_get_latency_range(left_port, JackPlaybackLatency, &left_latency_range);
     jack_port_get_latency_range(right_port, JackPlaybackLatency, &right_latency_range);
 
-    if ((left_latency_range.min == 0) && (left_latency_range.max == 0) &&
-        (right_latency_range.min == 0) && (right_latency_range.max == 0)) {
-      reply = -2; // meaning Shairport Sync is not connected
-    } else {
-      reply = 0; // meaning jack is open and Shairport Sync is connected to it
-    }
+    //    if ((left_latency_range.min == 0) && (left_latency_range.max == 0) &&
+    //        (right_latency_range.min == 0) && (right_latency_range.max == 0)) {
+    //      reply = -2; // meaning Shairport Sync is not connected
+    //    } else {
+    reply = 0; // meaning jack is open and Shairport Sync is connected to it
+               //    }
   }
   return reply;
 }
@@ -227,11 +245,15 @@ int jack_client_open_if_needed(void) {
       sample_rate = jack_get_sample_rate(client);
       // debug(1, "jackaudio sample rate = %" PRId32 ".", sample_rate);
       if (sample_rate == 44100) {
-        if (jack_activate(client)) {
-          debug(1, "jackaudio cannot activate client");
+        if (jack_set_latency_callback(client, default_jack_set_latency_callback, NULL) == 0) {
+          if (jack_activate(client)) {
+            debug(1, "jackaudio cannot activate client");
+          } else {
+            debug(2, "jackaudio client opened.");
+            client_is_open = 1;
+          }
         } else {
-          client_is_open = 1;
-          debug(2, "jackaudio client opened.");
+          debug(1, "jackaudio cannot set latency callback");
         }
       } else {
         inform(
@@ -276,7 +298,7 @@ void *open_client_if_necessary_thread_function(void *arg) {
   pthread_exit(NULL);
 }
 
-int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
+int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.500;
   config.jack_auto_client_open_interval = 1; // check every second
