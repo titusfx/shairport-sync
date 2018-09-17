@@ -1,3 +1,7 @@
+Version 3.3d10
+====
+Modify the `jack` interface to ignore the latencies of any ports connected to the `jack` end. This is because it does not seem appropriate to try to compensate for the delays in the `jack` system. Not sure if this is the correct approach... Maybe it's better to allow the user to select no compensation, compensate for the lowest latency or compensate for the highest latency; it seems unnecessarily complex, not really the business of Shairport Sync.
+
 Version 3.3d9
 ====
 Many changes to compilation and linking flags. Stop using `HAVE_*` flags except where necessary, use `CONFIG_*` for optional stuff, use `HAS_*` for immediate definitions to be used during configuration, use `USE_*` for Automake definitions. Probably introduced bugs, sigh.
