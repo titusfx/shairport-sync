@@ -1,3 +1,12 @@
+
+Version 3.3d11
+====
+**Enhancement**
+* Add a configuration option to specify the PulseAudio output sink. An extra option for the `pa` backend to allow the specification of the audio sink. Thanks to [Maciej Wilczyński](https://github.com/mLupine) for his work on this.
+
+**Bug Fix**
+* Remove unrecognised options from FreeBSD and OpenBSD complation instructions.
+
 Version 3.3d10
 ====
 Modify the `jack` interface to ignore the latencies of any ports connected to the `jack` end. This is because it does not seem appropriate to try to compensate for the delays in the `jack` system. Not sure if this is the correct approach... Maybe it's better to allow the user to select no compensation, compensate for the lowest latency or compensate for the highest latency; it seems unnecessarily complex, not really the business of Shairport Sync.
