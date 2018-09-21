@@ -1,4 +1,9 @@
 
+Version 3.3d12
+====
+**Bug Fix**
+* Unref-erence the `pa` stream when finished with it, so that the sink can go idle -- see [#745](https://github.com/mikebrady/shairport-sync/issues/745).
+
 Version 3.3d11
 ====
 **Enhancement**
