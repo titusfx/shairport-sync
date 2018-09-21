@@ -9,7 +9,7 @@ Version 3.3d11
 * Add a configuration option to specify the PulseAudio output sink. An extra option for the `pa` backend to allow the specification of the audio sink. Thanks to [Maciej Wilczyński](https://github.com/mLupine) for his work on this.
 
 **Bug Fix**
-* Remove unrecognised options from FreeBSD and OpenBSD complation instructions.
+* Remove unrecognised options from FreeBSD and OpenBSD compilation instructions.
 
 Version 3.3d10
 ====
