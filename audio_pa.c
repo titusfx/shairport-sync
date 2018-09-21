@@ -291,6 +291,7 @@ static void stop(void) {
   audio_occupancy = 0;
 
   // debug(1, "finish with stream");
+  pa_stream_unref(stream);
   pa_stream_disconnect(stream);
 }
 
