@@ -1,4 +1,10 @@
 
+Version 3.3d14
+====
+**Bug Fix**
+* Fix a problem when calling the program to be run when the volume control is changed. Thanks to [shaven](https://github.com/shaven) for the report.
+
+
 Version 3.3d13
 ====
 Reverted to 3.3d11 -- the modification in 3.3d12 was not needed and has been removed.
