@@ -1,9 +1,13 @@
 
+Version 3.3d15
+====
+**Bug Fix**
+* Adjust the latency calculation to accommodate changes in iOS 12 and AirPlay connections from macOS Mojave.
+
 Version 3.3d14
 ====
 **Bug Fix**
 * Fix a problem when calling the program to be run when the volume control is changed. Thanks to [shaven](https://github.com/shaven) for the report.
-
 
 Version 3.3d13
 ====
