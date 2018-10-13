@@ -1098,6 +1098,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                         // debug(1,"Frames to start: %llu, DAC delay %d, buffer: %d
                         // packets.",exact_frame_gap,dac_delay,seq_diff(conn->ab_read,
                         // conn->ab_write, conn->ab_read));
+                        
+                        //debug (1,"Play %" PRId64 " frames of silence.")
                         config.output->play(silence, fs);
                         free(silence);
                       }
