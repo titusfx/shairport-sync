@@ -1,7 +1,7 @@
 
 Version 3.3d15
 ====
-**Bug Fix**
+**Enhancement**
 * Adjust the latency calculation to accommodate changes in iOS 12 and AirPlay connections from macOS Mojave. Thanks to [artenverho](https://github.com/artenverho) who first reported the issue.
 
 Version 3.3d14
