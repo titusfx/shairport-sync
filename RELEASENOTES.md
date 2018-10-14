@@ -1,4 +1,13 @@
 
+Version 3.3d16
+====
+**Enhancement**
+* Extend the range of `audio_backend_latency_offset_in_seconds` to ± 1.75 seconds. Note that no sanity checking of any kind is done on this – if it is too large the program may simply crash.
+
+* Pay more attention to errors that may occur when asking for the DAC delay just before play starts. For diagnostic use.
+
+* Formatting of the settings file `shairport-sync.conf` has been fixed, thanks to the work of [roblan](https://github.com/roblan).
+
 Version 3.3d15
 ====
 **Enhancement**
