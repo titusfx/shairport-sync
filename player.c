@@ -1100,7 +1100,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                           // packets.",exact_frame_gap,dac_delay,seq_diff(conn->ab_read,
                           // conn->ab_write, conn->ab_read));
                           config.output->play(silence, fs);
-                          debug(1,"Sent %" PRId64 " frames of silence",fs);
+                          // debug(1,"Sent %" PRId64 " frames of silence",fs);
                           free(silence);
                         }
                       }
