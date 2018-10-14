@@ -3,7 +3,7 @@ Version 3.2.2
 Please see the [Release Notes for 3.2](https://github.com/mikebrady/shairport-sync/releases/tag/3.2).
 
 **Enhancement**
-* Adjust the latency calculation to accommodate changes in iOS 12 and AirPlay connections from macOS Mojave. Thanks to [artenverho](https://github.com/artenverho) who first reported the issue.
+* Latency calculations have been updated to accommodate changes in iOS 12 and AirPlay connections from macOS Mojave. Thanks to [artenverho](https://github.com/artenverho) who first reported the issue.
 
 * Formatting of the settings file `shairport-sync.conf` has been fixed, thanks to the work of [roblan](https://github.com/roblan).
 
