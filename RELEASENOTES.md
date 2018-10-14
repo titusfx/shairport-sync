@@ -1,3 +1,13 @@
+Version 3.2.2
+====
+Please see the [Release Notes for 3.2](https://github.com/mikebrady/shairport-sync/releases/tag/3.2).
+
+**Enhancement**
+* Update latency calculations for iOS 12 / mac OS Mojave to retain synchronisation between AirPlay audio and video.
+
+**Bug Fix**
+* Fixed a bug that prevented the `run_this_when_volume_is_set` script or program from running.
+
 Version 3.2.1
 ====
 Please see the [Release Notes for 3.2](https://github.com/mikebrady/shairport-sync/releases/tag/3.2).
