@@ -1000,9 +1000,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
             int64_t max_dac_delay = config.output_rate / 10; // so the lead-in time must be greater
                                                              // than this, say 0.2 sec, to allow for
-                                                             // dynamic adjustment
-            int64_t filler_size = max_dac_delay; // 0.1 second -- the maximum we'll add to the DAC
-
+                                                             // dynamic adjustment            
+            int64_t filler_size = max_dac_delay;
+            
             if (local_time_now >= conn->first_packet_time_to_play) {
               // debug(1,"Gone past starting time");
               have_sent_prefiller_silence = 1;
@@ -1025,87 +1025,90 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             } else {
               // do some calculations
               int64_t lead_time = conn->first_packet_time_to_play - local_time_now;
-              int64_t lead_in_time =
+              // an audio_backend_silent_lead_in_time of less than zero means start filling ASAP
+              int64_t lead_in_time = -1;
+              if (config.audio_backend_silent_lead_in_time>=0)
+                lead_in_time =
                   (int64_t)(config.audio_backend_silent_lead_in_time * (int64_t)0x100000000);
               // debug(1,"Lead time is %llx at fpttp
               // %llx.",lead_time,conn->first_packet_time_to_play);
-              // an audio_backend_silent_lead_in_time of less than zero means start filling ASAP
               if ((lead_in_time < 0) || (lead_time <= lead_in_time)) {
+              // debug(1,"Lead time is %" PRIx64 ", lead-in time is %" PRIx64 " at fpttp %llx.",lead_time,conn->first_packet_time_to_play);
+
                 // debug(1,"Checking");
                 if (config.output->delay) {
                   // conn->first_packet_time_to_play is definitely later than local_time_now
-                  if (have_sent_prefiller_silence != 0) {
-                    int resp = config.output->delay(&dac_delay);
-
-                    if (resp != 0) {
-                      debug(1, "Error %d getting dac_delay in buffer_get_frame.", resp);
-                      dac_delay = 0;
-                    }
-                  } else {
-                    dac_delay = 0;
-                  }
-                  int64_t gross_frame_gap =
-                      ((conn->first_packet_time_to_play - local_time_now) * config.output_rate) >>
-                      32;
-                  int64_t exact_frame_gap = gross_frame_gap - dac_delay;
-                  if (exact_frame_gap < 0) {
-                    // we've gone past the time...
-                    // debug(1,"Run past time.");
-                    // debug(1,"Run a bit past the exact start time by %lld frames, with time now of
-                    // %llx, fpttp of %llx and dac_delay of %d and %d packets;
-                    // flush.",-exact_frame_gap,tn,conn->first_packet_time_to_play,dac_delay,seq_diff(ab_read,
-                    // ab_write));
-                    if (config.output->flush)
-                      config.output->flush();
-                    ab_resync(conn);
-                    conn->first_packet_timestamp = 0;
-                    conn->first_packet_time_to_play = 0;
-                  } else {
-                    int64_t fs = filler_size;
-                    if (fs > (max_dac_delay - dac_delay))
-                      fs = max_dac_delay - dac_delay;
-                    if (fs < 0) {
-                      debug(2,
-                            "frame size (fs) < 0 with max_dac_delay of %lld and dac_delay of %ld",
-                            max_dac_delay, dac_delay);
-                      fs = 0;
-                    }
-                    if ((exact_frame_gap <= fs) ||
-                        (exact_frame_gap <= conn->max_frames_per_packet * 2)) {
-                      fs = exact_frame_gap;
-                      // debug(1,"Exact frame gap is %llu; play %d frames of silence. Dac_delay is
-                      // %d,
-                      // with %d packets, ab_read is %04x, ab_write is
-                      // %04x.",exact_frame_gap,fs,dac_delay,seq_diff(ab_read,
-                      // ab_write),ab_read,ab_write);
-                      conn->ab_buffering = 0;
-                    }
-                    void *silence;
-                    // if (fs==0)
-                    //  debug(2,"Zero length silence buffer needed with gross_frame_gap of %lld and
-                    //  dac_delay of %lld.",gross_frame_gap,dac_delay);
-                    // the fs (number of frames of silence to play) can be zero in the DAC doesn't
-                    // start
-                    // outputting frames for a while -- it could get loaded up but not start
-                    // responding
-                    // for many milliseconds.
-                    if (fs > 0) {
-                      silence = malloc(conn->output_bytes_per_frame * fs);
-                      if (silence == NULL)
-                        debug(1, "Failed to allocate %d byte silence buffer.", fs);
-                      else {
-                        memset(silence, 0, conn->output_bytes_per_frame * fs);
-                        // debug(1,"Frames to start: %llu, DAC delay %d, buffer: %d
-                        // packets.",exact_frame_gap,dac_delay,seq_diff(conn->ab_read,
-                        // conn->ab_write, conn->ab_read));
-                        
-                        //debug (1,"Play %" PRId64 " frames of silence.")
-                        config.output->play(silence, fs);
-                        free(silence);
+                  int resp = 0;
+                  dac_delay = 0;
+                  if (have_sent_prefiller_silence != 0) 
+                    resp = config.output->delay(&dac_delay);
+                  if (resp == 0) {
+                    int64_t gross_frame_gap =
+                        ((conn->first_packet_time_to_play - local_time_now) * config.output_rate) >>
+                        32;
+                    int64_t exact_frame_gap = gross_frame_gap - dac_delay;
+                    // debug(1,"Exact and gross frame gaps are %" PRId64 " and %" PRId64 " frames, and the dac delay is %ld.", exact_frame_gap, gross_frame_gap, dac_delay);
+                    if (exact_frame_gap < 0) {
+                      // we've gone past the time...
+                      // debug(1,"Run past time.");
+                      
+                      // this might happen if a big clock adjustment was made at just the wrong time.
+                      
+                      debug(1,"Run a bit past the exact start time by %" PRId64 " frames.",-exact_frame_gap);
+                      if (config.output->flush)
+                        config.output->flush();
+                      ab_resync(conn);
+                      conn->first_packet_timestamp = 0;
+                      conn->first_packet_time_to_play = 0;
+                    } else {
+                      int64_t fs = filler_size;
+                      if (fs > (max_dac_delay - dac_delay))
+                        fs = max_dac_delay - dac_delay;
+                      if (fs < 0) {
+                        // this could happen if the dac delay mysteriously grows between samples, which could happen in a transition between having no interpolation and having interpolated buffer numbers.
+                        debug(2,
+                              "frame size (fs) < 0 with max_dac_delay of %lld and dac_delay of %ld",
+                              max_dac_delay, dac_delay);
+                        fs = 0;
                       }
+                      if ((exact_frame_gap <= fs) ||
+                          (exact_frame_gap <= conn->max_frames_per_packet * 2)) {
+                        fs = exact_frame_gap;
+                        // debug(1,"Exact frame gap is %llu; play %d frames of silence. Dac_delay is
+                        // %d,
+                        // with %d packets, ab_read is %04x, ab_write is
+                        // %04x.",exact_frame_gap,fs,dac_delay,seq_diff(ab_read,
+                        // ab_write),ab_read,ab_write);
+                        conn->ab_buffering = 0;
+                      }
+                      void *silence;
+                      // if (fs==0)
+                      //  debug(2,"Zero length silence buffer needed with gross_frame_gap of %lld and
+                      //  dac_delay of %lld.",gross_frame_gap,dac_delay);
+                      // the fs (number of frames of silence to play) can be zero in the DAC doesn't
+                      // start
+                      // outputting frames for a while -- it could get loaded up but not start
+                      // responding
+                      // for many milliseconds.
+                      if (fs > 0) {
+                        silence = malloc(conn->output_bytes_per_frame * fs);
+                        if (silence == NULL)
+                          debug(1, "Failed to allocate %d byte silence buffer.", fs);
+                        else {
+                          memset(silence, 0, conn->output_bytes_per_frame * fs);
+                          // debug(1,"Frames to start: %llu, DAC delay %d, buffer: %d
+                          // packets.",exact_frame_gap,dac_delay,seq_diff(conn->ab_read,
+                          // conn->ab_write, conn->ab_read));
+                          config.output->play(silence, fs);
+                          debug(1,"Sent %" PRId64 " frames of silence",fs);
+                          free(silence);
+                        }
+                      }
+                      have_sent_prefiller_silence =
+                          1; // even if we haven't sent silence because it's zero frames long...
                     }
-                    have_sent_prefiller_silence =
-                        1; // even if we haven't sent silence because it's zero frames long...
+                  } else {
+                    // debug(1, "Unable to get dac delay.");
                   }
                 } else {
                   // no delay function on back end -- just send the prefiller silence

@@ -876,7 +876,8 @@ int delay(long *the_delay) {
   } else {
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
     int derr;
-    if (snd_pcm_state(alsa_handle) == SND_PCM_STATE_RUNNING) {
+    snd_pcm_state_t dac_state = snd_pcm_state(alsa_handle);
+    if (dac_state == SND_PCM_STATE_RUNNING) {
       *the_delay = 0; // just to see what happens
       reply = snd_pcm_delay(alsa_handle, the_delay);
       if (reply != 0) {
@@ -893,19 +894,18 @@ int delay(long *the_delay) {
         }
       }
     } else {
+      reply = -EIO; // shomething is wrong
       frame_index = 0; // we'll be starting over...
       measurement_data_is_valid = 0;
 
-      if (snd_pcm_state(alsa_handle) == SND_PCM_STATE_PREPARED) {
-        *the_delay = 0;
-        reply = 0; // no error
+      if (dac_state == SND_PCM_STATE_PREPARED) {
+        debug(1,"delay not available -- state is SND_PCM_STATE_PREPARED");
       } else {
-        if (snd_pcm_state(alsa_handle) == SND_PCM_STATE_XRUN) {
-          *the_delay = 0;
-          reply = 0; // no error
+        if (dac_state == SND_PCM_STATE_XRUN) {
+          debug(1,"delay not available -- state is SND_PCM_STATE_XRUN"); 
         } else {
-          reply = -EIO;
-          debug(1, "Error -- ALSA delay(): bad state: %d.", snd_pcm_state(alsa_handle));
+
+          debug(1, "Error -- ALSA delay(): bad state: %d.", dac_state);
         }
         if ((derr = snd_pcm_prepare(alsa_handle))) {
           snd_pcm_recover(alsa_handle, derr, 1);
@@ -917,7 +917,7 @@ int delay(long *the_delay) {
     pthread_cleanup_pop(0);
     // here, occasionally pretend there's a problem with pcm_get_delay()
     // if ((random() % 100000) < 3) // keep it pretty rare
-    //	reply = -EPERM; // pretend something bad has happened
+    //	reply = -EIO; // pretend something bad has happened
     return reply;
   }
 }
@@ -1005,7 +1005,7 @@ static int play(void *buf, int samples) {
           measurement_time = get_absolute_time_in_fp();
           frames_played_at_measurement_time = frames_sent_for_playing - fl;
           if (frame_index == start_measurement_from_this_frame) {
-            debug(1, "Start frame counting");
+            // debug(1, "Start frame counting");
             frames_played_at_measurement_start_time = frames_played_at_measurement_time;
             measurement_start_time = measurement_time;
             measurement_data_is_valid = 1;
