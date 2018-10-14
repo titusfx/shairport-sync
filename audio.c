@@ -171,9 +171,9 @@ void parse_general_audio_options(void) {
     /* Get the latency offset in seconds. */
     if (config_lookup_float(config.cfg, "general.audio_backend_latency_offset_in_seconds",
                             &dvalue)) {
-      if ((dvalue < -1.0) || (dvalue > 1.5)) {
+      if ((dvalue < -1.75) || (dvalue > 1.75)) {
         die("Invalid audio_backend_latency_offset_in_seconds \"%f\". It "
-            "should be between -1.0 and +1.5, default is 0 seconds",
+            "should be between -1.75 and +1.75, default is 0 seconds",
             dvalue);
       } else {
         config.audio_backend_latency_offset = dvalue;
