@@ -179,7 +179,6 @@ void *rtp_audio_receiver(void *arg) {
         }
 
         uint32_t actual_timestamp = ntohl(*(uint32_t *)(pktp + 4));
-        int64_t timestamp = monotonic_timestamp(actual_timestamp, conn);
 
         // if (packet[1]&0x10)
         //	debug(1,"Audio packet Extension bit set.");
@@ -191,7 +190,7 @@ void *rtp_audio_receiver(void *arg) {
         if (plen >= 16) {
           if ((config.diagnostic_drop_packet_fraction == 0.0) ||
               (drand48() > config.diagnostic_drop_packet_fraction))
-            player_put_packet(seqno, actual_timestamp, timestamp, pktp, plen, conn);
+            player_put_packet(seqno, actual_timestamp, pktp, plen, conn);
           else
             debug(3, "Dropping audio packet %u to simulate a bad connection.", seqno);
           continue;
@@ -238,7 +237,7 @@ void *rtp_control_receiver(void *arg) {
   uint8_t packet[2048], *pktp;
   // struct timespec tn;
   uint64_t remote_time_of_sync;
-  int64_t sync_rtp_timestamp;
+  uint32_t sync_rtp_timestamp;
   ssize_t nread;
   while (1) {
     nread = recv(conn->control_socket, packet, sizeof(packet), 0);
@@ -304,14 +303,14 @@ void *rtp_control_receiver(void *arg) {
 
             // debug(1,"Remote Sync Time: %0llx.",remote_time_of_sync);
 
-            sync_rtp_timestamp = monotonic_timestamp(nctohl(&packet[16]), conn);
-            int64_t rtp_timestamp_less_latency = monotonic_timestamp(nctohl(&packet[4]), conn);
+            sync_rtp_timestamp = nctohl(&packet[16]);
+            uint32_t rtp_timestamp_less_latency = nctohl(&packet[4]);
 
             // debug(1,"Sync timestamp is %u.",ntohl(*((uint32_t *)&packet[16])));
 
             if (config.userSuppliedLatency) {
               if (config.userSuppliedLatency != conn->latency) {
-                debug(1, "Using the user-supplied latency: %" PRId64 ".",
+                debug(1, "Using the user-supplied latency: %" PRIu32 ".",
                       config.userSuppliedLatency);
               }
               conn->latency = config.userSuppliedLatency;
@@ -330,8 +329,8 @@ void *rtp_control_receiver(void *arg) {
               // Sigh, it would be nice to have a published protocol...
 
               uint16_t flags = nctohs(&packet[2]);
-              int64_t la = sync_rtp_timestamp - rtp_timestamp_less_latency;
-              // debug(3, "Latency derived just from the sync packet is %" PRId64 " frames.", la);
+              uint32_t la = sync_rtp_timestamp - rtp_timestamp_less_latency; // note, this might loop around in modulo. Not sure if you'll get an error!
+              // debug(3, "Latency derived just from the sync packet is %" PRIu32 " frames.", la);
               
               if ((flags == 7) || ((conn->AirPlayVersion > 0) && (conn->AirPlayVersion <= 353)) || ((conn->AirPlayVersion > 0) && (conn->AirPlayVersion >= 371))) {
                 la += config.fixedLatencyOffset;
@@ -347,20 +346,20 @@ void *rtp_control_receiver(void *arg) {
               if ((conn->minimum_latency) && (conn->minimum_latency > la))
                 la = conn->minimum_latency;
 
-              const int max_frames = ((3 * BUFFER_FRAMES * 352) / 4) - 11025;
+              const uint32_t max_frames = ((3 * BUFFER_FRAMES * 352) / 4) - 11025;
 
-              if ((la < 0) || (la > max_frames)) {
-                warn("An out-of-range latency request of %" PRId64
-                     " frames was ignored. Must be %d frames or less (44,100 frames per second). "
-                     "Latency remains at %" PRId64 " frames.",
+              if (la > max_frames) {
+                warn("An out-of-range latency request of %" PRIu32
+                     " frames was ignored. Must be %" PRIu32 " frames or less (44,100 frames per second). "
+                     "Latency remains at %" PRIu32 " frames.",
                      la, max_frames, conn->latency);
               } else {
 
                 if (la != conn->latency) {
                   conn->latency = la;
-                  debug(3, "New latency detected: %" PRId64 ", sync latency: %" PRId64
-                           ", minimum latency: %" PRId64 ", maximum "
-                           "latency: %" PRId64 ", fixed offset: %" PRId64 ".",
+                  debug(3, "New latency detected: %" PRIu32 ", sync latency: %" PRIu32
+                           ", minimum latency: %" PRIu32 ", maximum "
+                           "latency: %" PRIu32 ", fixed offset: %" PRIu32 ".",
                         la, sync_rtp_timestamp - rtp_timestamp_less_latency, conn->minimum_latency,
                         conn->maximum_latency, config.fixedLatencyOffset);
                 }
@@ -380,7 +379,7 @@ void *rtp_control_receiver(void *arg) {
                 if (remote_frame_time_interval) {
                   conn->remote_frame_rate =
                       (1.0 * (conn->reference_timestamp - conn->initial_reference_timestamp)) /
-                      remote_frame_time_interval; // an IEEE double calculation with two 64-bit
+                      remote_frame_time_interval; // an IEEE double calculation with a 32-bit numerator and 64-bit denominator
                                                   // integers
                   conn->remote_frame_rate = conn->remote_frame_rate *
                                             (uint64_t)0x100000000; // this should just change the
@@ -395,7 +394,7 @@ void *rtp_control_receiver(void *arg) {
 
             // this is for debugging
             uint64_t old_remote_reference_time = conn->remote_reference_timestamp_time;
-            int64_t old_reference_timestamp = conn->reference_timestamp;
+            uint32_t old_reference_timestamp = conn->reference_timestamp;
             // int64_t old_latency_delayed_timestamp = conn->latency_delayed_timestamp;
 
             conn->remote_reference_timestamp_time = remote_time_of_sync;
@@ -444,14 +443,13 @@ void *rtp_control_receiver(void *arg) {
           debug(3, "Control Receiver -- Retransmitted Audio Data Packet %u received.", seqno);
 
           uint32_t actual_timestamp = ntohl(*(uint32_t *)(pktp + 4));
-          int64_t timestamp = monotonic_timestamp(actual_timestamp, conn);
 
           pktp += 12;
           plen -= 12;
 
           // check if packet contains enough content to be reasonable
           if (plen >= 16) {
-            player_put_packet(seqno, actual_timestamp, timestamp, pktp, plen, conn);
+            player_put_packet(seqno, actual_timestamp, pktp, plen, conn);
             continue;
           } else {
             debug(3, "Too-short retransmitted audio packet received in control port, ignored.");
@@ -1004,7 +1002,7 @@ void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t cport, uint16_t tport
   }
 }
 
-void get_reference_timestamp_stuff(int64_t *timestamp, uint64_t *timestamp_time,
+void get_reference_timestamp_stuff(uint32_t *timestamp, uint64_t *timestamp_time,
                                    uint64_t *remote_timestamp_time, rtsp_conn_info *conn) {
   // types okay
   debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);

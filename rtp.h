@@ -17,7 +17,7 @@ void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t controlport, uint16_t
 void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn);
 void rtp_request_client_pause(rtsp_conn_info *conn); // ask the client to pause
 
-void get_reference_timestamp_stuff(int64_t *timestamp, uint64_t *timestamp_time,
+void get_reference_timestamp_stuff(uint32_t *timestamp, uint64_t *timestamp_time,
                                    uint64_t *remote_timestamp_time, rtsp_conn_info *conn);
 void clear_reference_timestamp(rtsp_conn_info *conn);
 
