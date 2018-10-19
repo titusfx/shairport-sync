@@ -242,6 +242,8 @@ typedef struct {
   void *dapo_private_storage;  // this is used for compatibility, if dacp stuff isn't enabled.
 } rtsp_conn_info;
 
+uint32_t rtp_frame_offset(uint32_t from, uint32_t to);
+
 int player_play(rtsp_conn_info *conn);
 int player_stop(rtsp_conn_info *conn);
 

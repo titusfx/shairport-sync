@@ -99,11 +99,11 @@
 // static abuf_t audio_buffer[BUFFER_FRAMES];
 #define BUFIDX(seqno) ((seq_t)(seqno) % BUFFER_FRAMES)
 
-uint32_t rtp_frame_offset(uint32_t base, uint32_t frame_in_question) {
-	if (base <= frame_in_question)
-		return frame_in_question - base;
+uint32_t rtp_frame_offset(uint32_t from, uint32_t to) {
+	if (from <= to)
+		return to - from;
 	else
-		return UINT32_MAX - base + frame_in_question + 1;
+		return UINT32_MAX - from + to + 1;
 }
 
 void do_flush(uint32_t timestamp, rtsp_conn_info *conn);
@@ -944,8 +944,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
               uint64_t should_be_time;
               frame_to_local_time(
-                  conn->first_packet_timestamp + conn->latency * conn->output_sample_ratio +
-                      (int64_t)(config.audio_backend_latency_offset * config.output_rate),
+                  conn->first_packet_timestamp + conn->latency +
+                      (uint32_t)(config.audio_backend_latency_offset * conn->input_rate), // this will go modulo 2^32
                   &should_be_time, conn);
 
               conn->first_packet_time_to_play = should_be_time;
@@ -965,8 +965,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
             uint64_t should_be_time;
             frame_to_local_time(
-                conn->first_packet_timestamp + conn->latency * conn->output_sample_ratio +
-                    (int64_t)(config.audio_backend_latency_offset * config.output_rate),
+                conn->first_packet_timestamp + conn->latency +
+                    (uint32_t)(config.audio_backend_latency_offset * conn->input_rate), // this should go modulo 2^32
                 &should_be_time, conn);
 
             conn->first_packet_time_to_play = should_be_time;
@@ -1163,9 +1163,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
         uint64_t time_to_play;
         frame_to_local_time(
-            (curframe->given_timestamp + conn->latency) * conn->output_sample_ratio +
-                (int64_t)(config.audio_backend_latency_offset * config.output_rate) -
-                config.audio_backend_buffer_desired_length * config.output_rate,
+            curframe->given_timestamp + conn->latency +
+                (uint32_t)(config.audio_backend_latency_offset * conn->input_rate) -
+                (uint32_t)(config.audio_backend_buffer_desired_length * conn->input_rate), // this will go modulo 2^32
             &time_to_play, conn);
 
         if (local_time_now >= time_to_play) {
@@ -1908,7 +1908,6 @@ void *player_thread_func(void *arg) {
           uint64_t reference_timestamp_time, remote_reference_timestamp_time;
           get_reference_timestamp_stuff(&reference_timestamp, &reference_timestamp_time,
                                         &remote_reference_timestamp_time, conn); // types okay
-          reference_timestamp *= conn->output_sample_ratio;
           int64_t rt, nt;
           rt = reference_timestamp; // uint32_t to int64_t
           nt = inframe->given_timestamp;  // uint32_t to int64_t
@@ -2000,8 +1999,9 @@ void *player_thread_func(void *arg) {
 
           if (resp >= 0) {
 
-            int64_t should_be_frame;
-            local_time_to_frame(local_time_now, &should_be_frame, conn);
+            uint32_t should_be_frame_32;
+            local_time_to_frame(local_time_now, &should_be_frame_32, conn);
+            int64_t should_be_frame = ((int64_t)should_be_frame_32) * conn->output_sample_ratio;
 
             // int64_t absolute_difference_in_frames = td_in_frames + rt - should_be_frame;
             // if (absolute_difference_in_frames < 0)
@@ -2041,11 +2041,11 @@ void *player_thread_func(void *arg) {
                 (config.resyncthreshold > 0.0) &&
                 (abs_sync_error > config.resyncthreshold * config.output_rate)) {
               if (abs_sync_error > 3 * config.output_rate) {
-                warn("Very large sync error: %" PRId64 " frames, with delay: %" PRId64
-                     ", td_in_frames: %" PRId64 ", rt: %" PRId64 ", nt: %" PRId64
-                     ", current_delay: %" PRId64 ", seqno: %u, given timestamp: %" PRIu32 ".",
-                     sync_error, delay, td_in_frames, rt, nt, current_delay,
-                     inframe->sequence_number, inframe->given_timestamp);
+              
+                warn("Very large sync error: %" PRId64 " frames, with should_be_frame: %" PRId64
+                     ",  nt: %" PRId64
+                     ", current_delay: %" PRId64 ", given timestamp %" PRIX32 ", reference timestamp %" PRIX32 ", should_be_frame %" PRIX32 ".",
+                     sync_error, should_be_frame, nt, current_delay, inframe->given_timestamp, reference_timestamp, should_be_frame_32);
               }
               sync_error_out_of_bounds++;
             } else {
