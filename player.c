@@ -602,6 +602,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data,
                    j)) { // prevent multiple requests from the same level of lookback
                 check_buf->resend_level = j;
                 if (config.disable_resend_requests == 0) {
+                	debug_mutex_unlock(&conn->ab_mutex, 3);
                   rtp_request_resend(next, 1, conn);
                   conn->resend_requests++;
                   debug_mutex_lock(&conn->ab_mutex, 20000, 1);
