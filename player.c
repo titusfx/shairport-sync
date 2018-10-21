@@ -2085,7 +2085,7 @@ void *player_thread_func(void *arg) {
               //        sync_error_out_of_bounds, sync_error);
               sync_error_out_of_bounds = 0;
 
-              int64_t filler_length = (int64_t)config.resyncthreshold * config.output_rate; // number of samples
+              int64_t filler_length = (int64_t)(config.resyncthreshold * config.output_rate); // number of samples
               if ((sync_error > 0) && (sync_error > filler_length)) {
                 debug(1, "Large positive sync error: %" PRId64 ".", sync_error);
                 frames_to_drop = sync_error / conn->output_sample_ratio;
@@ -2098,6 +2098,7 @@ void *player_thread_func(void *arg) {
                 char *long_silence = malloc(conn->output_bytes_per_frame * silence_length_sized);
                 if (long_silence) {
                   memset(long_silence, 0, conn->output_bytes_per_frame * silence_length_sized);
+                  debug(1,"Play a silence of %d frames.",silence_length_sized);
                   config.output->play(long_silence, silence_length_sized);
                   free(long_silence);
                 } else {
