@@ -1610,7 +1610,7 @@ void *player_thread_func(void *arg) {
   signed short *inbuf;
   int inbuflength;
 
-  int output_bit_depth = 16; // default;
+  unsigned int output_bit_depth = 16; // default;
 
   switch (config.output_format) {
   case SPS_FORMAT_S8:

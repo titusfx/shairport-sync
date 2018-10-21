@@ -111,7 +111,7 @@ typedef struct {
   // other stuff...
   pthread_t *player_thread;
   abuf_t audio_buffer[BUFFER_FRAMES];
-  int max_frames_per_packet, input_num_channels, input_bit_depth, input_rate;
+  unsigned int max_frames_per_packet, input_num_channels, input_bit_depth, input_rate;
   int input_bytes_per_frame, output_bytes_per_frame, output_sample_ratio;
   int max_frame_size_change;
   int64_t previous_random_number;
