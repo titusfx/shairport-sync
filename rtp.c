@@ -1074,7 +1074,7 @@ int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn
   uint64_t timestamp_interval_time;
   uint64_t remote_time_of_timestamp;
   uint32_t timestamp_interval = rtp_frame_offset(conn->reference_timestamp,timestamp);
-  if (timestamp_interval <= 44100*10) { // i.e. timestamp was really after the reference timestamp
+  if (timestamp_interval <= conn->input_rate*10) { // i.e. timestamp was really after the reference timestamp
     timestamp_interval_time =
         (timestamp_interval * time_difference) /
         (frame_difference);                             // this is the nominal time, based on the
