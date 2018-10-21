@@ -68,14 +68,14 @@ typedef struct {
 } stream_cfg;
 
 typedef struct {
-  int connection_number;   // for debug ID purposes, nothing else...
-  int resend_interval;     // this is really just for debugging
-  int AirPlayVersion;      // zero if not an AirPlay session. Used to help calculate latency
+  int connection_number;    // for debug ID purposes, nothing else...
+  int resend_interval;      // this is really just for debugging
+  int AirPlayVersion;       // zero if not an AirPlay session. Used to help calculate latency
   uint32_t latency;         // the actual latency used for this play session
   uint32_t minimum_latency; // set if an a=min-latency: line appears in the ANNOUNCE message; zero
-                           // otherwise
+                            // otherwise
   uint32_t maximum_latency; // set if an a=max-latency: line appears in the ANNOUNCE message; zero
-                           // otherwise
+                            // otherwise
 
   int fd;
   int authorized;   // set if a password is required and has been supplied
@@ -250,8 +250,8 @@ int player_stop(rtsp_conn_info *conn);
 void player_volume(double f, rtsp_conn_info *conn);
 void player_volume_without_notification(double f, rtsp_conn_info *conn);
 void player_flush(uint32_t timestamp, rtsp_conn_info *conn);
-void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data,
-                       int len, rtsp_conn_info *conn);
+void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, int len,
+                       rtsp_conn_info *conn);
 int64_t monotonic_timestamp(uint32_t timestamp,
                             rtsp_conn_info *conn); // add an epoch to the timestamp. The monotonic
 // timestamp guaranteed to start between 2^32 2^33

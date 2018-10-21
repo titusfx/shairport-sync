@@ -329,10 +329,14 @@ void *rtp_control_receiver(void *arg) {
               // Sigh, it would be nice to have a published protocol...
 
               uint16_t flags = nctohs(&packet[2]);
-              uint32_t la = sync_rtp_timestamp - rtp_timestamp_less_latency; // note, this might loop around in modulo. Not sure if you'll get an error!
+              uint32_t la = sync_rtp_timestamp - rtp_timestamp_less_latency; // note, this might
+                                                                             // loop around in
+                                                                             // modulo. Not sure if
+                                                                             // you'll get an error!
               // debug(3, "Latency derived just from the sync packet is %" PRIu32 " frames.", la);
-              
-              if ((flags == 7) || ((conn->AirPlayVersion > 0) && (conn->AirPlayVersion <= 353)) || ((conn->AirPlayVersion > 0) && (conn->AirPlayVersion >= 371))) {
+
+              if ((flags == 7) || ((conn->AirPlayVersion > 0) && (conn->AirPlayVersion <= 353)) ||
+                  ((conn->AirPlayVersion > 0) && (conn->AirPlayVersion >= 371))) {
                 la += config.fixedLatencyOffset;
                 // debug(3, "A fixed latency offset of %d frames has been added, giving a latency of
                 // "
@@ -350,7 +354,8 @@ void *rtp_control_receiver(void *arg) {
 
               if (la > max_frames) {
                 warn("An out-of-range latency request of %" PRIu32
-                     " frames was ignored. Must be %" PRIu32 " frames or less (44,100 frames per second). "
+                     " frames was ignored. Must be %" PRIu32
+                     " frames or less (44,100 frames per second). "
                      "Latency remains at %" PRIu32 " frames.",
                      la, max_frames, conn->latency);
               } else {
@@ -379,7 +384,8 @@ void *rtp_control_receiver(void *arg) {
                 if (remote_frame_time_interval) {
                   conn->remote_frame_rate =
                       (1.0 * (conn->reference_timestamp - conn->initial_reference_timestamp)) /
-                      remote_frame_time_interval; // an IEEE double calculation with a 32-bit numerator and 64-bit denominator
+                      remote_frame_time_interval; // an IEEE double calculation with a 32-bit
+                                                  // numerator and 64-bit denominator
                                                   // integers
                   conn->remote_frame_rate = conn->remote_frame_rate *
                                             (uint64_t)0x100000000; // this should just change the
@@ -1040,8 +1046,9 @@ int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_con
   *time = (uint64_t)(0x100000000); // one second in fp form
   if ((conn->packet_stream_established) && (conn->initial_reference_time) &&
       (conn->initial_reference_timestamp)) {
-//    uint32_t local_frames = conn->reference_timestamp - conn->initial_reference_timestamp;
-    uint32_t local_frames = rtp_frame_offset(conn->initial_reference_timestamp, conn->reference_timestamp);
+    //    uint32_t local_frames = conn->reference_timestamp - conn->initial_reference_timestamp;
+    uint32_t local_frames =
+        rtp_frame_offset(conn->initial_reference_timestamp, conn->reference_timestamp);
     uint64_t local_time = conn->remote_reference_timestamp_time - conn->initial_reference_time;
     if ((local_frames == 0) || (local_time == 0) || (use_nominal_rate)) {
       result = 1;
@@ -1073,24 +1080,24 @@ int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn
 
   uint64_t timestamp_interval_time;
   uint64_t remote_time_of_timestamp;
-  uint32_t timestamp_interval = rtp_frame_offset(conn->reference_timestamp,timestamp);
-  if (timestamp_interval <= conn->input_rate*10) { // i.e. timestamp was really after the reference timestamp
-    timestamp_interval_time =
-        (timestamp_interval * time_difference) /
-        (frame_difference);                             // this is the nominal time, based on the
-                                                        // fps specified between current and
-                                                        // previous sync frame.
+  uint32_t timestamp_interval = rtp_frame_offset(conn->reference_timestamp, timestamp);
+  if (timestamp_interval <=
+      conn->input_rate * 10) { // i.e. timestamp was really after the reference timestamp
+    timestamp_interval_time = (timestamp_interval * time_difference) /
+                              (frame_difference); // this is the nominal time, based on the
+                                                  // fps specified between current and
+                                                  // previous sync frame.
     remote_time_of_timestamp = conn->remote_reference_timestamp_time +
                                timestamp_interval_time; // based on the reference timestamp time
                                                         // plus the time interval calculated based
                                                         // on the specified fps.
   } else { // i.e. timestamp was actually after the reference timestamp
-    timestamp_interval = rtp_frame_offset(timestamp,conn->reference_timestamp); // fix the calculation
-    timestamp_interval_time =
-        (timestamp_interval * time_difference) /
-        (frame_difference);                             // this is the nominal time, based on the
-                                                        // fps specified between current and
-                                                        // previous sync frame.
+    timestamp_interval =
+        rtp_frame_offset(timestamp, conn->reference_timestamp); // fix the calculation
+    timestamp_interval_time = (timestamp_interval * time_difference) /
+                              (frame_difference); // this is the nominal time, based on the
+                                                  // fps specified between current and
+                                                  // previous sync frame.
     remote_time_of_timestamp = conn->remote_reference_timestamp_time -
                                timestamp_interval_time; // based on the reference timestamp time
                                                         // plus the time interval calculated based

@@ -507,8 +507,7 @@ fail:
   return 0;
 }
 
-enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn,
-                                                         rtsp_message **the_packet) {
+enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_message **the_packet) {
   enum rtsp_read_request_response reply = rtsp_read_request_response_ok;
   ssize_t buflen = 4096;
   char *buf = malloc(buflen + 1);
@@ -738,7 +737,7 @@ void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) 
 }
 
 void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
-                           rtsp_message *resp) {
+                    rtsp_message *resp) {
   debug(3, "Connection %d: OPTIONS", conn->connection_number);
   resp->respcode = 200;
   msg_add_header(resp, "Public", "ANNOUNCE, SETUP, RECORD, "
@@ -747,7 +746,7 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
 }
 
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
-                            rtsp_message *resp) {
+                     rtsp_message *resp) {
   debug(2, "Connection %d: TEARDOWN", conn->connection_number);
   // if (!rtsp_playing())
   //  debug(1, "This RTSP connection thread (%d) doesn't think it's playing, but "
@@ -904,7 +903,7 @@ static void handle_ignore(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
 */
 
 void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
-                                           __attribute__((unused)) rtsp_message *resp) {
+                                    __attribute__((unused)) rtsp_message *resp) {
   char *cp = req->content;
   int cp_left = req->contentlength;
   char *next;

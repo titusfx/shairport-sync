@@ -894,15 +894,15 @@ int delay(long *the_delay) {
         }
       }
     } else {
-      reply = -EIO; // shomething is wrong
+      reply = -EIO;    // shomething is wrong
       frame_index = 0; // we'll be starting over...
       measurement_data_is_valid = 0;
 
       if (dac_state == SND_PCM_STATE_PREPARED) {
-        debug(1,"delay not available -- state is SND_PCM_STATE_PREPARED");
+        debug(1, "delay not available -- state is SND_PCM_STATE_PREPARED");
       } else {
         if (dac_state == SND_PCM_STATE_XRUN) {
-          debug(1,"delay not available -- state is SND_PCM_STATE_XRUN"); 
+          debug(1, "delay not available -- state is SND_PCM_STATE_XRUN");
         } else {
 
           debug(1, "Error -- ALSA delay(): bad state: %d.", dac_state);
