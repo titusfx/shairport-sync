@@ -1832,12 +1832,14 @@ void *player_thread_func(void *arg) {
             free(silence);
           }
         } else if (frames_to_drop) {
+          /*
           if (frames_to_drop > 3 * config.output_rate) {
             warn("Shome mhistake shurely: very large number of frames to drop: %" PRId64
                  " -- setting it to %" PRId64 ".",
                  frames_to_drop, 3 * config.output_rate);
             frames_to_drop = 3 * config.output_rate;
           }
+          */
           debug(3, "%" PRId64 " frames to drop.", frames_to_drop);
           frames_to_drop -= inframe->length;
           if (frames_to_drop < 0)
@@ -2062,6 +2064,7 @@ void *player_thread_func(void *arg) {
             if ((config.no_sync == 0) && (inframe->given_timestamp != 0) &&
                 (config.resyncthreshold > 0.0) &&
                 (abs_sync_error > config.resyncthreshold * config.output_rate)) {
+              /*
               if (abs_sync_error > 3 * config.output_rate) {
 
                 warn("Very large sync error: %" PRId64 " frames, with should_be_frame: %" PRId64
@@ -2070,6 +2073,7 @@ void *player_thread_func(void *arg) {
                      sync_error, should_be_frame, nt, current_delay, inframe->given_timestamp,
                      reference_timestamp, should_be_frame_32);
               }
+              */
               sync_error_out_of_bounds++;
             } else {
               sync_error_out_of_bounds = 0;
@@ -2081,25 +2085,25 @@ void *player_thread_func(void *arg) {
               //        sync_error_out_of_bounds, sync_error);
               sync_error_out_of_bounds = 0;
 
-              int filler_length = config.resyncthreshold * config.output_rate; // number of samples
+              int64_t filler_length = (int64_t)config.resyncthreshold * config.output_rate; // number of samples
               if ((sync_error > 0) && (sync_error > filler_length)) {
-                // debug(1, "Large positive sync error: %lld.", sync_error);
+                debug(1, "Large positive sync error: %" PRId64 ".", sync_error);
                 frames_to_drop = sync_error / conn->output_sample_ratio;
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
-                // debug(1, "Large negative sync error: %lld. Inserting silence.", sync_error);
-                int silence_length = -sync_error;
+                debug(1, "Large negative sync error: %" PRId64 ". Inserting silence.", sync_error);
+                int64_t silence_length = -sync_error;
                 if (silence_length > (filler_length * 5))
                   silence_length = filler_length * 5;
-
-                char *long_silence = malloc(conn->output_bytes_per_frame * silence_length);
+                size_t silence_length_sized = silence_length;
+                char *long_silence = malloc(conn->output_bytes_per_frame * silence_length_sized);
                 if (long_silence) {
-                  memset(long_silence, 0, conn->output_bytes_per_frame * silence_length);
-                  config.output->play(long_silence, silence_length);
+                  memset(long_silence, 0, conn->output_bytes_per_frame * silence_length_sized);
+                  config.output->play(long_silence, silence_length_sized);
                   free(long_silence);
                 } else {
                   warn("Failed to allocate memory for a long_silence buffer of %d frames for a "
-                       "sync error of %" PRId64 " frames.",
-                       silence_length, sync_error);
+                       "sync error of %d frames.",
+                       silence_length_sized, sync_error);
                 }
               }
             } else {
