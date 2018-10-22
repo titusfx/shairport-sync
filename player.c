@@ -1935,8 +1935,8 @@ void *player_thread_func(void *arg) {
           int64_t rt, nt;
           rt = reference_timestamp;      // uint32_t to int64_t
           nt = inframe->given_timestamp; // uint32_t to int64_t
-          rt *= conn->output_sample_ratio;
-          nt *= conn->output_sample_ratio;
+          rt = rt*conn->output_sample_ratio;
+          nt = nt*conn->output_sample_ratio;
 
           uint64_t local_time_now = get_absolute_time_in_fp(); // types okay
           // struct timespec tn;
@@ -2050,7 +2050,7 @@ void *player_thread_func(void *arg) {
             // if negative, the packet will be early -- the delay is less than expected.
 
             sync_error =
-                delay - (conn->latency * conn->output_sample_ratio +
+                delay - ((int64_t)conn->latency * conn->output_sample_ratio +
                          (int64_t)(config.audio_backend_latency_offset *
                                    config.output_rate)); // int64_t from int64_t - int32_t, so okay
 
@@ -2090,7 +2090,8 @@ void *player_thread_func(void *arg) {
                 debug(1, "Large positive sync error: %" PRId64 ".", sync_error);
                 frames_to_drop = sync_error / conn->output_sample_ratio;
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
-                debug(1, "Large negative sync error: %" PRId64 ". Inserting silence.", sync_error);
+                debug(1, "Large negative sync error: %" PRId64 " with should_be_frame_32 of %" PRIu32
+                ", nt of %" PRId64 " and current_delay of %" PRId64 ".", sync_error, should_be_frame_32, nt, current_delay);
                 int64_t silence_length = -sync_error;
                 if (silence_length > (filler_length * 5))
                   silence_length = filler_length * 5;
