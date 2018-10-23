@@ -899,13 +899,13 @@ int delay(long *the_delay) {
       measurement_data_is_valid = 0;
 
       if (dac_state == SND_PCM_STATE_PREPARED) {
-        debug(1, "delay not available -- state is SND_PCM_STATE_PREPARED");
+        debug(2, "delay not available -- state is SND_PCM_STATE_PREPARED");
       } else {
         if (dac_state == SND_PCM_STATE_XRUN) {
-          debug(1, "delay not available -- state is SND_PCM_STATE_XRUN");
+          debug(2, "delay not available -- state is SND_PCM_STATE_XRUN");
         } else {
 
-          debug(1, "Error -- ALSA delay(): bad state: %d.", dac_state);
+          debug(2, "Error -- ALSA delay(): bad state: %d.", dac_state);
         }
         if ((derr = snd_pcm_prepare(alsa_handle))) {
           snd_pcm_recover(alsa_handle, derr, 1);

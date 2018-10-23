@@ -218,7 +218,8 @@ typedef struct {
                                         // slightly above or  below.
   int local_to_remote_time_gradient_sample_count; // the number of samples used to calculate the
                                                   // gradient
-  uint64_t local_to_remote_time_difference;       // used to switch between local and remote clocks
+  // add the following to the local time to get the remote time modulo 2^64
+  uint64_t local_to_remote_time_difference; // used to switch between local and remote clocks
   uint64_t local_to_remote_time_difference_measurement_time; // when the above was calculated
 
   int last_stuff_request;
@@ -242,7 +243,8 @@ typedef struct {
   void *dapo_private_storage;  // this is used for compatibility, if dacp stuff isn't enabled.
 } rtsp_conn_info;
 
-uint32_t rtp_frame_offset(uint32_t from, uint32_t to);
+uint32_t modulo_32_offset(uint32_t from, uint32_t to);
+uint64_t modulo_64_offset(uint64_t from, uint64_t to);
 
 int player_play(rtsp_conn_info *conn);
 int player_stop(rtsp_conn_info *conn);
