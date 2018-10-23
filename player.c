@@ -2114,7 +2114,7 @@ void *player_thread_func(void *arg) {
                 char *long_silence = malloc(conn->output_bytes_per_frame * silence_length_sized);
                 if (long_silence) {
                   memset(long_silence, 0, conn->output_bytes_per_frame * silence_length_sized);
-                  debug(1,"Play a silence of %d frames.",silence_length_sized);
+                  debug(2,"Play a silence of %d frames.",silence_length_sized);
                   config.output->play(long_silence, silence_length_sized);
                   free(long_silence);
                 } else {
