@@ -1136,7 +1136,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                     int64_t frame_gap = (lead_time * config.output_rate) >> 32;
                     // debug(1,"%d frames needed.",frame_gap);
                     while (frame_gap > 0) {
-                      size_t fs = config.output_rate / 10;
+                      ssize_t fs = config.output_rate / 10;
                       if (fs > frame_gap)
                         fs = frame_gap;
 
