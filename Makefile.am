@@ -1,5 +1,8 @@
 SUBDIRS = man
 ARFLAGS = cr
+lib_dbus_interface_a_CFLAGS = -pthread
+lib_mpris_interface_a_CFLAGS = -pthread
+
 
 bin_PROGRAMS = shairport-sync
 
@@ -8,10 +11,8 @@ bin_PROGRAMS = shairport-sync
 shairport_sync_SOURCES = shairport.c rtsp.c mdns.c mdns_external.c common.c rtp.c player.c alac.c audio.c loudness.c
 
 if BUILD_FOR_FREEBSD
-  AM_CXXFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\" -O2
-  AM_CFLAGS = -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\" -O2
-  lib_dbus_interface_a_CFLAGS = -pthread -O2
-  lib_mpris_interface_a_CFLAGS = -pthread -O2
+  AM_CXXFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
+  AM_CFLAGS = -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
 else
 if BUILD_FOR_OPENBSD
   AM_CXXFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -Wno-clobbered -Wno-psabi -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
@@ -19,7 +20,6 @@ if BUILD_FOR_OPENBSD
 else
   AM_CXXFLAGS = -Wno-multichar -Wall -Wextra -Wno-clobbered -Wno-psabi -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
   AM_CFLAGS = -Wno-multichar -Wall -Wextra -Wno-clobbered -Wno-psabi -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
-  lib_dbus_interface_a_CFLAGS = -Wno-multichar -Wall -Wextra -Wno-clobbered -Wno-psabi -Wno-unused-parameter -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
 endif
 endif
 
