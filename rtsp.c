@@ -285,7 +285,7 @@ void cancel_all_RTSP_threads(void) {
   }
 }
 
-static void cleanup_threads(void) {
+void cleanup_threads(void) {
   void *retval;
   int i;
   // debug(2, "culling threads.");
@@ -348,7 +348,7 @@ static char *nextline(char *in, int inbuf) {
   return out;
 }
 
-static void msg_retain(rtsp_message *msg) {
+void msg_retain(rtsp_message *msg) {
   if (msg) {
     int rc = pthread_mutex_lock(&reference_counter_lock);
     if (rc)
@@ -362,7 +362,7 @@ static void msg_retain(rtsp_message *msg) {
   }
 }
 
-static rtsp_message *msg_init(void) {
+rtsp_message *msg_init(void) {
   rtsp_message *msg = malloc(sizeof(rtsp_message));
   if (msg) {
     memset(msg, 0, sizeof(rtsp_message));
@@ -373,7 +373,7 @@ static rtsp_message *msg_init(void) {
   return msg;
 }
 
-static int msg_add_header(rtsp_message *msg, char *name, char *value) {
+int msg_add_header(rtsp_message *msg, char *name, char *value) {
   if (msg->nheaders >= sizeof(msg->name) / sizeof(char *)) {
     warn("too many headers?!");
     return 1;
@@ -386,7 +386,7 @@ static int msg_add_header(rtsp_message *msg, char *name, char *value) {
   return 0;
 }
 
-static char *msg_get_header(rtsp_message *msg, char *name) {
+char *msg_get_header(rtsp_message *msg, char *name) {
   unsigned int i;
   for (i = 0; i < msg->nheaders; i++)
     if (!strcasecmp(msg->name[i], name))
@@ -394,7 +394,7 @@ static char *msg_get_header(rtsp_message *msg, char *name) {
   return NULL;
 }
 
-static void debug_print_msg_headers(int level, rtsp_message *msg) {
+void debug_print_msg_headers(int level, rtsp_message *msg) {
   unsigned int i;
   for (i = 0; i < msg->nheaders; i++) {
     debug(level, "  Type: \"%s\", content: \"%s\"", msg->name[i], msg->value[i]);
@@ -424,7 +424,7 @@ static void debug_print_msg_content(int level, rtsp_message *msg) {
 }
 */
 
-static void msg_free(rtsp_message *msg) {
+void msg_free(rtsp_message *msg) {
 
   if (msg) {
     int rc = pthread_mutex_lock(&reference_counter_lock);
@@ -452,7 +452,7 @@ static void msg_free(rtsp_message *msg) {
   }
 }
 
-static int msg_handle_line(rtsp_message **pmsg, char *line) {
+int msg_handle_line(rtsp_message **pmsg, char *line) {
   rtsp_message *msg = *pmsg;
 
   if (!msg) {
@@ -507,8 +507,7 @@ fail:
   return 0;
 }
 
-static enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn,
-                                                         rtsp_message **the_packet) {
+enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_message **the_packet) {
   enum rtsp_read_request_response reply = rtsp_read_request_response_ok;
   ssize_t buflen = 4096;
   char *buf = malloc(buflen + 1);
@@ -649,7 +648,7 @@ shutdown:
   return reply;
 }
 
-static void msg_write_response(int fd, rtsp_message *resp) {
+void msg_write_response(int fd, rtsp_message *resp) {
   char pkt[2048];
   int pktfree = sizeof(pkt);
   char *p = pkt;
@@ -697,7 +696,7 @@ static void msg_write_response(int fd, rtsp_message *resp) {
     debug(1, "Error writing an RTSP packet -- requested bytes not fully written.");
 }
 
-static void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(2, "Connection %d: RECORD", conn->connection_number);
 
   if (conn->player_thread)
@@ -737,8 +736,8 @@ static void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
   }
 }
 
-static void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
-                           rtsp_message *resp) {
+void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
+                    rtsp_message *resp) {
   debug(3, "Connection %d: OPTIONS", conn->connection_number);
   resp->respcode = 200;
   msg_add_header(resp, "Public", "ANNOUNCE, SETUP, RECORD, "
@@ -746,8 +745,8 @@ static void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_me
                                  "OPTIONS, GET_PARAMETER, SET_PARAMETER");
 }
 
-static void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
-                            rtsp_message *resp) {
+void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
+                     rtsp_message *resp) {
   debug(2, "Connection %d: TEARDOWN", conn->connection_number);
   // if (!rtsp_playing())
   //  debug(1, "This RTSP connection thread (%d) doesn't think it's playing, but "
@@ -763,7 +762,7 @@ static void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_m
         conn->connection_number);
 }
 
-static void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: FLUSH", conn->connection_number);
   //  if (!rtsp_playing())
   //    debug(1, "This RTSP conversation thread (%d) doesn't think it's playing, but "
@@ -793,7 +792,7 @@ static void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *
   resp->respcode = 200;
 }
 
-static void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: SETUP", conn->connection_number);
   uint16_t cport, tport;
 
@@ -903,8 +902,8 @@ static void handle_ignore(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
 }
 */
 
-static void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
-                                           __attribute__((unused)) rtsp_message *resp) {
+void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
+                                    __attribute__((unused)) rtsp_message *resp) {
   char *cp = req->content;
   int cp_left = req->contentlength;
   char *next;

@@ -179,7 +179,6 @@ void *rtp_audio_receiver(void *arg) {
         }
 
         uint32_t actual_timestamp = ntohl(*(uint32_t *)(pktp + 4));
-        int64_t timestamp = monotonic_timestamp(actual_timestamp, conn);
 
         // if (packet[1]&0x10)
         //	debug(1,"Audio packet Extension bit set.");
@@ -191,7 +190,7 @@ void *rtp_audio_receiver(void *arg) {
         if (plen >= 16) {
           if ((config.diagnostic_drop_packet_fraction == 0.0) ||
               (drand48() > config.diagnostic_drop_packet_fraction))
-            player_put_packet(seqno, actual_timestamp, timestamp, pktp, plen, conn);
+            player_put_packet(seqno, actual_timestamp, pktp, plen, conn);
           else
             debug(3, "Dropping audio packet %u to simulate a bad connection.", seqno);
           continue;
@@ -238,7 +237,7 @@ void *rtp_control_receiver(void *arg) {
   uint8_t packet[2048], *pktp;
   // struct timespec tn;
   uint64_t remote_time_of_sync;
-  int64_t sync_rtp_timestamp;
+  uint32_t sync_rtp_timestamp;
   ssize_t nread;
   while (1) {
     nread = recv(conn->control_socket, packet, sizeof(packet), 0);
@@ -304,14 +303,14 @@ void *rtp_control_receiver(void *arg) {
 
             // debug(1,"Remote Sync Time: %0llx.",remote_time_of_sync);
 
-            sync_rtp_timestamp = monotonic_timestamp(nctohl(&packet[16]), conn);
-            int64_t rtp_timestamp_less_latency = monotonic_timestamp(nctohl(&packet[4]), conn);
+            sync_rtp_timestamp = nctohl(&packet[16]);
+            uint32_t rtp_timestamp_less_latency = nctohl(&packet[4]);
 
             // debug(1,"Sync timestamp is %u.",ntohl(*((uint32_t *)&packet[16])));
 
             if (config.userSuppliedLatency) {
               if (config.userSuppliedLatency != conn->latency) {
-                debug(1, "Using the user-supplied latency: %" PRId64 ".",
+                debug(1, "Using the user-supplied latency: %" PRIu32 ".",
                       config.userSuppliedLatency);
               }
               conn->latency = config.userSuppliedLatency;
@@ -330,10 +329,14 @@ void *rtp_control_receiver(void *arg) {
               // Sigh, it would be nice to have a published protocol...
 
               uint16_t flags = nctohs(&packet[2]);
-              int64_t la = sync_rtp_timestamp - rtp_timestamp_less_latency;
-              // debug(3, "Latency derived just from the sync packet is %" PRId64 " frames.", la);
-              
-              if ((flags == 7) || ((conn->AirPlayVersion > 0) && (conn->AirPlayVersion <= 353)) || ((conn->AirPlayVersion > 0) && (conn->AirPlayVersion >= 371))) {
+              uint32_t la = sync_rtp_timestamp - rtp_timestamp_less_latency; // note, this might
+                                                                             // loop around in
+                                                                             // modulo. Not sure if
+                                                                             // you'll get an error!
+              // debug(3, "Latency derived just from the sync packet is %" PRIu32 " frames.", la);
+
+              if ((flags == 7) || ((conn->AirPlayVersion > 0) && (conn->AirPlayVersion <= 353)) ||
+                  ((conn->AirPlayVersion > 0) && (conn->AirPlayVersion >= 371))) {
                 la += config.fixedLatencyOffset;
                 // debug(3, "A fixed latency offset of %d frames has been added, giving a latency of
                 // "
@@ -347,20 +350,21 @@ void *rtp_control_receiver(void *arg) {
               if ((conn->minimum_latency) && (conn->minimum_latency > la))
                 la = conn->minimum_latency;
 
-              const int max_frames = ((3 * BUFFER_FRAMES * 352) / 4) - 11025;
+              const uint32_t max_frames = ((3 * BUFFER_FRAMES * 352) / 4) - 11025;
 
-              if ((la < 0) || (la > max_frames)) {
-                warn("An out-of-range latency request of %" PRId64
-                     " frames was ignored. Must be %d frames or less (44,100 frames per second). "
-                     "Latency remains at %" PRId64 " frames.",
+              if (la > max_frames) {
+                warn("An out-of-range latency request of %" PRIu32
+                     " frames was ignored. Must be %" PRIu32
+                     " frames or less (44,100 frames per second). "
+                     "Latency remains at %" PRIu32 " frames.",
                      la, max_frames, conn->latency);
               } else {
 
                 if (la != conn->latency) {
                   conn->latency = la;
-                  debug(3, "New latency detected: %" PRId64 ", sync latency: %" PRId64
-                           ", minimum latency: %" PRId64 ", maximum "
-                           "latency: %" PRId64 ", fixed offset: %" PRId64 ".",
+                  debug(3, "New latency detected: %" PRIu32 ", sync latency: %" PRIu32
+                           ", minimum latency: %" PRIu32 ", maximum "
+                           "latency: %" PRIu32 ", fixed offset: %" PRIu32 ".",
                         la, sync_rtp_timestamp - rtp_timestamp_less_latency, conn->minimum_latency,
                         conn->maximum_latency, config.fixedLatencyOffset);
                 }
@@ -380,7 +384,8 @@ void *rtp_control_receiver(void *arg) {
                 if (remote_frame_time_interval) {
                   conn->remote_frame_rate =
                       (1.0 * (conn->reference_timestamp - conn->initial_reference_timestamp)) /
-                      remote_frame_time_interval; // an IEEE double calculation with two 64-bit
+                      remote_frame_time_interval; // an IEEE double calculation with a 32-bit
+                                                  // numerator and 64-bit denominator
                                                   // integers
                   conn->remote_frame_rate = conn->remote_frame_rate *
                                             (uint64_t)0x100000000; // this should just change the
@@ -395,7 +400,7 @@ void *rtp_control_receiver(void *arg) {
 
             // this is for debugging
             uint64_t old_remote_reference_time = conn->remote_reference_timestamp_time;
-            int64_t old_reference_timestamp = conn->reference_timestamp;
+            uint32_t old_reference_timestamp = conn->reference_timestamp;
             // int64_t old_latency_delayed_timestamp = conn->latency_delayed_timestamp;
 
             conn->remote_reference_timestamp_time = remote_time_of_sync;
@@ -444,14 +449,13 @@ void *rtp_control_receiver(void *arg) {
           debug(3, "Control Receiver -- Retransmitted Audio Data Packet %u received.", seqno);
 
           uint32_t actual_timestamp = ntohl(*(uint32_t *)(pktp + 4));
-          int64_t timestamp = monotonic_timestamp(actual_timestamp, conn);
 
           pktp += 12;
           plen -= 12;
 
           // check if packet contains enough content to be reasonable
           if (plen >= 16) {
-            player_put_packet(seqno, actual_timestamp, timestamp, pktp, plen, conn);
+            player_put_packet(seqno, actual_timestamp, pktp, plen, conn);
             continue;
           } else {
             debug(3, "Too-short retransmitted audio packet received in control port, ignored.");
@@ -1004,7 +1008,7 @@ void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t cport, uint16_t tport
   }
 }
 
-void get_reference_timestamp_stuff(int64_t *timestamp, uint64_t *timestamp_time,
+void get_reference_timestamp_stuff(uint32_t *timestamp, uint64_t *timestamp_time,
                                    uint64_t *remote_timestamp_time, rtsp_conn_info *conn) {
   // types okay
   debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);
@@ -1036,21 +1040,25 @@ int have_timestamp_timing_information(rtsp_conn_info *conn) {
 // right...
 const int use_nominal_rate = 0; // specify whether to use the nominal input rate, usually 44100 fps
 
-int sanitised_source_rate_information(int64_t *frames, uint64_t *time, rtsp_conn_info *conn) {
+int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_conn_info *conn) {
   int result = 1;
-  *frames = conn->input_rate;
-  *time = (uint64_t)(0x100000000); // one second in fp form
+  uint32_t fs = conn->input_rate;
+  *frames = fs;
+  uint64_t one_fp = (uint64_t)(0x100000000); // one second in fp form
+  *time = one_fp;
   if ((conn->packet_stream_established) && (conn->initial_reference_time) &&
       (conn->initial_reference_timestamp)) {
-    int64_t local_frames = conn->reference_timestamp - conn->initial_reference_timestamp;
+    //    uint32_t local_frames = conn->reference_timestamp - conn->initial_reference_timestamp;
+    uint32_t local_frames =
+        modulo_32_offset(conn->initial_reference_timestamp, conn->reference_timestamp);
     uint64_t local_time = conn->remote_reference_timestamp_time - conn->initial_reference_time;
     if ((local_frames == 0) || (local_time == 0) || (use_nominal_rate)) {
       result = 1;
     } else {
-      double calculated_frame_rate = ((1.0 * local_frames) / local_time) * (uint64_t)0x100000000;
-      if (((calculated_frame_rate / conn->input_rate) > 1.001) ||
-          ((calculated_frame_rate / conn->input_rate) < 0.999)) {
-        // debug(1, "input frame rate out of bounds at %.2f fps.", calculated_frame_rate);
+      double calculated_frame_rate = ((1.0 * local_frames) / local_time) * one_fp;
+      if (((calculated_frame_rate / conn->input_rate) > 1.002) ||
+          ((calculated_frame_rate / conn->input_rate) < 0.998)) {
+        debug(1, "input frame rate out of bounds at %.2f fps.", calculated_frame_rate);
         result = 1;
       } else {
         *frames = local_frames;
@@ -1062,41 +1070,36 @@ int sanitised_source_rate_information(int64_t *frames, uint64_t *time, rtsp_conn
   return result;
 }
 
-// we assume here that the timestamp is a timestamp calculated at the output rate, which could be an
-// integer multiple of the input rate
+// the timestamp is a timestamp calculated at the input rate
 // the reference timestamps are denominated in terms of the input rate
 
-int frame_to_local_time(int64_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
+int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
   debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);
   int result = 0;
   uint64_t time_difference;
-  int64_t frame_difference;
+  uint32_t frame_difference;
   result = sanitised_source_rate_information(&frame_difference, &time_difference, conn);
 
-  int64_t timestamp_interval =
-      timestamp -
-      conn->reference_timestamp *
-          conn->output_sample_ratio; // we could be dealing with multiples of 44100 (nominally)
-  // debug(1, "Timestamp interval: %" PRId64 " frames with reference timestamp %" PRId64
-  // ".",timestamp_interval,conn->reference_timestamp);
   uint64_t timestamp_interval_time;
   uint64_t remote_time_of_timestamp;
-  if (timestamp_interval >= 0) {
-    timestamp_interval_time =
-        (timestamp_interval * time_difference) /
-        (frame_difference * conn->output_sample_ratio); // this is the nominal time, based on the
-                                                        // fps specified between current and
-                                                        // previous sync frame.
+  uint32_t timestamp_interval = modulo_32_offset(conn->reference_timestamp, timestamp);
+  if (timestamp_interval <=
+      conn->input_rate * 3600) { // i.e. timestamp was really after the reference timestamp
+    timestamp_interval_time = (timestamp_interval * time_difference) /
+                              frame_difference; // this is the nominal time, based on the
+                                                // fps specified between current and
+                                                // previous sync frame.
     remote_time_of_timestamp = conn->remote_reference_timestamp_time +
                                timestamp_interval_time; // based on the reference timestamp time
                                                         // plus the time interval calculated based
                                                         // on the specified fps.
-  } else {
-    timestamp_interval_time =
-        ((-timestamp_interval) * time_difference) /
-        (frame_difference * conn->output_sample_ratio); // this is the nominal time, based on the
-                                                        // fps specified between current and
-                                                        // previous sync frame.
+  } else { // i.e. timestamp was actually before the reference timestamp
+    timestamp_interval =
+        modulo_32_offset(timestamp, conn->reference_timestamp); // fix the calculation
+    timestamp_interval_time = (timestamp_interval * time_difference) /
+                              frame_difference; // this is the nominal time, based on the
+                                                // fps specified between current and
+                                                // previous sync frame.
     remote_time_of_timestamp = conn->remote_reference_timestamp_time -
                                timestamp_interval_time; // based on the reference timestamp time
                                                         // plus the time interval calculated based
@@ -1107,12 +1110,12 @@ int frame_to_local_time(int64_t timestamp, uint64_t *time, rtsp_conn_info *conn)
   return result;
 }
 
-int local_time_to_frame(uint64_t time, int64_t *frame, rtsp_conn_info *conn) {
+int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
   debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);
   int result = 0;
 
   uint64_t time_difference;
-  int64_t frame_difference;
+  uint32_t frame_difference;
   result = sanitised_source_rate_information(&frame_difference, &time_difference, conn);
 
   // first, get from [local] time to remote time.
@@ -1121,20 +1124,23 @@ int local_time_to_frame(uint64_t time, int64_t *frame, rtsp_conn_info *conn) {
   uint64_t time_interval;
 
   // here, we calculate the time interval, in terms of remote time
-  if (remote_time >= conn->remote_reference_timestamp_time)
+  uint64_t offset = modulo_64_offset(conn->remote_reference_timestamp_time, remote_time);
+  int reference_time_was_earlier = (offset <= (uint64_t)0x100000000 * 3600);
+  if (reference_time_was_earlier) // if we haven't had a reference within the last hour, it'll be
+                                  // taken as afterwards
     time_interval = remote_time - conn->remote_reference_timestamp_time;
   else
     time_interval = conn->remote_reference_timestamp_time - remote_time;
 
   // now, convert the remote time interval into frames using the frame rate we have observed or
   // which has been nominated
-  int64_t frame_interval = (time_interval * frame_difference) / time_difference;
-  if (remote_time >= conn->remote_reference_timestamp_time) {
+  uint32_t frame_interval = (time_interval * frame_difference) / time_difference;
+  if (reference_time_was_earlier) {
     // debug(1,"Frame interval is %" PRId64 " frames.",frame_interval);
-    *frame = (conn->reference_timestamp + frame_interval) * conn->output_sample_ratio;
+    *frame = (conn->reference_timestamp + frame_interval);
   } else {
     // debug(1,"Frame interval is %" PRId64 " frames.",-frame_interval);
-    *frame = (conn->reference_timestamp - frame_interval) * conn->output_sample_ratio;
+    *frame = (conn->reference_timestamp - frame_interval);
   }
   debug_mutex_unlock(&conn->reference_time_mutex, 3);
   return result;

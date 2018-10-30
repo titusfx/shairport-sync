@@ -187,12 +187,14 @@ static void start(__attribute__((unused)) int sample_rate,
 
   if (config.pa_sink) {
     // Connect stream to the sink specified in the config
-    connect_result = pa_stream_connect_playback(stream, config.pa_sink, &buffer_attr, stream_flags, NULL, NULL);
+    connect_result =
+        pa_stream_connect_playback(stream, config.pa_sink, &buffer_attr, stream_flags, NULL, NULL);
   } else {
     // Connect stream to the default audio output sink
-    connect_result = pa_stream_connect_playback(stream, NULL, &buffer_attr, stream_flags, NULL, NULL);
+    connect_result =
+        pa_stream_connect_playback(stream, NULL, &buffer_attr, stream_flags, NULL, NULL);
   }
-  
+
   if (connect_result != 0)
     die("could not connect to the pulseaudio playback stream -- the error message is \"%s\".",
         pa_strerror(pa_context_errno(context)));

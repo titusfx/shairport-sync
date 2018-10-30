@@ -40,7 +40,7 @@ typedef uint16_t seq_t;
 typedef struct audio_buffer_entry { // decoded audio packets
   int ready;
   int resend_level;
-  int64_t timestamp;
+  // int64_t timestamp;
   seq_t sequence_number;
   uint32_t given_timestamp; // for debugging and checking
   signed short *data;
@@ -68,14 +68,14 @@ typedef struct {
 } stream_cfg;
 
 typedef struct {
-  int connection_number;   // for debug ID purposes, nothing else...
-  int resend_interval;     // this is really just for debugging
-  int AirPlayVersion;      // zero if not an AirPlay session. Used to help calculate latency
-  int64_t latency;         // the actual latency used for this play session
-  int64_t minimum_latency; // set if an a=min-latency: line appears in the ANNOUNCE message; zero
-                           // otherwise
-  int64_t maximum_latency; // set if an a=max-latency: line appears in the ANNOUNCE message; zero
-                           // otherwise
+  int connection_number;    // for debug ID purposes, nothing else...
+  int resend_interval;      // this is really just for debugging
+  int AirPlayVersion;       // zero if not an AirPlay session. Used to help calculate latency
+  uint32_t latency;         // the actual latency used for this play session
+  uint32_t minimum_latency; // set if an a=min-latency: line appears in the ANNOUNCE message; zero
+                            // otherwise
+  uint32_t maximum_latency; // set if an a=max-latency: line appears in the ANNOUNCE message; zero
+                            // otherwise
 
   int fd;
   int authorized;   // set if a password is required and has been supplied
@@ -103,15 +103,15 @@ typedef struct {
   int input_frame_rate_starting_point_is_valid;
 
   uint64_t frames_inward_measurement_start_time;
-  uint64_t frames_inward_frames_received_at_measurement_start_time;
+  uint32_t frames_inward_frames_received_at_measurement_start_time;
 
   uint64_t frames_inward_measurement_time;
-  uint64_t frames_inward_frames_received_at_measurement_time;
+  uint32_t frames_inward_frames_received_at_measurement_time;
 
   // other stuff...
   pthread_t *player_thread;
   abuf_t audio_buffer[BUFFER_FRAMES];
-  int max_frames_per_packet, input_num_channels, input_bit_depth, input_rate;
+  unsigned int max_frames_per_packet, input_num_channels, input_bit_depth, input_rate;
   int input_bytes_per_frame, output_bytes_per_frame, output_sample_ratio;
   int max_frame_size_change;
   int64_t previous_random_number;
@@ -136,7 +136,7 @@ typedef struct {
   int ab_buffering, ab_synced;
   int64_t first_packet_timestamp;
   int flush_requested;
-  int64_t flush_rtp_timestamp;
+  uint32_t flush_rtp_timestamp;
   uint64_t time_of_last_audio_packet;
   seq_t ab_read, ab_write;
 
@@ -187,7 +187,7 @@ typedef struct {
 
   // this is what connects an rtp timestamp to the remote time
 
-  int64_t reference_timestamp;
+  uint32_t reference_timestamp;
   uint64_t remote_reference_timestamp_time;
 
   int packet_stream_established; // true if a stream of packets is flowing, made true by a first
@@ -195,7 +195,7 @@ typedef struct {
 
   // used as the initials values for calculating the rate at which the source thinks it's sending
   // frames
-  int64_t initial_reference_timestamp;
+  uint32_t initial_reference_timestamp;
   uint64_t initial_reference_time;
   double remote_frame_rate;
 
@@ -218,7 +218,8 @@ typedef struct {
                                         // slightly above or  below.
   int local_to_remote_time_gradient_sample_count; // the number of samples used to calculate the
                                                   // gradient
-  uint64_t local_to_remote_time_difference;       // used to switch between local and remote clocks
+  // add the following to the local time to get the remote time modulo 2^64
+  uint64_t local_to_remote_time_difference; // used to switch between local and remote clocks
   uint64_t local_to_remote_time_difference_measurement_time; // when the above was calculated
 
   int last_stuff_request;
@@ -242,14 +243,17 @@ typedef struct {
   void *dapo_private_storage;  // this is used for compatibility, if dacp stuff isn't enabled.
 } rtsp_conn_info;
 
+uint32_t modulo_32_offset(uint32_t from, uint32_t to);
+uint64_t modulo_64_offset(uint64_t from, uint64_t to);
+
 int player_play(rtsp_conn_info *conn);
 int player_stop(rtsp_conn_info *conn);
 
 void player_volume(double f, rtsp_conn_info *conn);
 void player_volume_without_notification(double f, rtsp_conn_info *conn);
-void player_flush(int64_t timestamp, rtsp_conn_info *conn);
-void player_put_packet(seq_t seqno, uint32_t actual_timestamp, int64_t timestamp, uint8_t *data,
-                       int len, rtsp_conn_info *conn);
+void player_flush(uint32_t timestamp, rtsp_conn_info *conn);
+void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, int len,
+                       rtsp_conn_info *conn);
 int64_t monotonic_timestamp(uint32_t timestamp,
                             rtsp_conn_info *conn); // add an epoch to the timestamp. The monotonic
 // timestamp guaranteed to start between 2^32 2^33

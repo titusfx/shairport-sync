@@ -84,9 +84,9 @@ typedef struct {
 #ifdef CONFIG_PA
   char *pa_application_name; // the name under which Shairport Sync shows up as an "Application" in
                              // the Sound Preferences in most desktop Linuxes.
-                             // Defaults to "Shairport Sync". Shairport Sync must be playing to see it.
+  // Defaults to "Shairport Sync". Shairport Sync must be playing to see it.
 
-  char *pa_sink;    // the name (or id) of the sink that Shairport Sync will play on.
+  char *pa_sink; // the name (or id) of the sink that Shairport Sync will play on.
 #endif
 #ifdef CONFIG_METADATA
   int metadata_enabled;
@@ -134,9 +134,9 @@ typedef struct {
   char *mdns_name;
   mdns_backend *mdns;
   int buffer_start_fill;
-  int64_t userSuppliedLatency; // overrides all other latencies -- use with caution
-  int64_t fixedLatencyOffset;  // add this to all automatic latencies supplied to get the actual
-                               // total latency
+  uint32_t userSuppliedLatency; // overrides all other latencies -- use with caution
+  uint32_t fixedLatencyOffset;  // add this to all automatic latencies supplied to get the actual
+                                // total latency
   // the total latency will be limited to the min and max-latency values, if supplied
   int daemonise;
   int daemonise_store_pid; // don't try to save a PID file
