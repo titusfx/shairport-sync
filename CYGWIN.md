@@ -28,6 +28,8 @@ and enter valid DNS server addresses, e.g. `8.8.8.8`.
 ```
 $ git clone https://github.com/hyperrealm/libconfig.git
 $ cd libconfig
+$ create a .gitattributes file with the content in https://pete.akeo.ie/2010/12/that-darn-libtoolize-acconfigmacrodirm4.html
+$ open Cygwin.bat (probably in C:\cygwin ) and in that shell navigate to the libconfig folder ( if you need to change to drive d, for instance, do `cd cygdrive/d`
 $ autoreconf -fi
 $ ./configure
 $ make
